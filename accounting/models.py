@@ -10,6 +10,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
 from accounting.fields import CurrencyField
+from accounting.consts import ACCOUNT_PATH_SEPARATOR  
 
 from datetime import datetime
 
@@ -82,6 +83,9 @@ class Account(models.Model):
     placeholder = models.BooleanField(default=False)
     owner = models.ForeignKey(Subject)
     
+    class Meta:
+        unique_together = ('parent', 'name')
+    
     @property
     def balance(self):
         """
@@ -102,7 +106,7 @@ class Account(models.Model):
     def path(self):
         """
         The tree path needed to reach this account from the root of the account system,
-        in the form 'root:account:subaccount:...' .
+        in the form ':account:subaccount:...' .
         """
         raise NotImplementedError 
     
@@ -133,7 +137,22 @@ class Account(models.Model):
         if self.is_root:
             return self.owner
         else: 
-            return self.parent.account_system_owner         
+            return self.parent.account_system_owner
+        
+    def get_child(self, name):
+        """
+        Return the child of this account having the name provided as argument.
+        
+        If no child with that name exists, raise ``Account.DoesNotExist``." 
+        """      
+        raise NotImplementedError 
+    
+    def get_children(self):
+        """
+        Return the children for this account, as a ``QuerySet``.
+        """
+        raise NotImplementedError
+    
     
     def __unicode__(self):
         return _("Account %(path)s of the system owned by %(subject)s") % {'path':self.path, 'subject':self.root.owner}
@@ -222,4 +241,43 @@ class Invoice(models.Model):
     def total_amount(self):
         """Total amount for the invoice (including taxes)."""
         return self.net_amount + self.taxes  
+
+class AccountSystem(object):
+    """
+    This class provide access to the tree of accounts an account system is made of.
     
+    It provides a dictionary-like interface for easier navigation through the account tree. 
+    """
+    def __init__(self, root_account):
+        self.root = root_account
+        self._accounts = models.Manager(Account)
+    
+    ## operator overloading methods
+    def __getitem__(self, path):
+        """
+        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
+        and return the account living at that path location.
+        
+        If no account exists at that location, raise ``Account.DoesNotExist``.
+        """
+        raise NotImplementedError
+    
+    def __setitem__(self, path, account):
+        """
+        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
+        and an ``Account`` instance; add that account to the children of the account living at that path location.
+          
+        If the path location is invalid, or ``account`` is not a valid ``Account`` instance or the parent account 
+        has already a child named as the given account instance, raise ``ValueError``. 
+        """ 
+        raise NotImplementedError
+    
+class AccountingProxy(object):
+    """
+    This class is meant to be used as a proxy for accessing accounting-related functionalities.
+    """
+    
+    def __init__(self, subject):
+        self.subject = subject
+        root_account = None # to be implemented
+        self.accounts = AccountSystem(root_account) 

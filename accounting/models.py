@@ -231,6 +231,8 @@ class Invoice(models.Model):
     issue_date = models.DateTimeField()
     # when the invoice is due
     due_date = models.DateTimeField()
+    # Does this invoice has been payed ?
+    payed = models.BooleanField()
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     
@@ -272,6 +274,7 @@ class AccountSystem(object):
         """ 
         raise NotImplementedError
     
+    
 class AccountingProxy(object):
     """
     This class is meant to be used as a proxy for accessing accounting-related functionalities.
@@ -281,15 +284,42 @@ class AccountingProxy(object):
         self.subject = subject
         root_account = None # to be implemented
         self.accounts = AccountSystem(root_account)
+    
+    @property    
+    def account(self):
+        """
+        Return the main account of the current subject (if any).
         
+        Since the semantic of 'main account' is strongly domain-dependent, 
+        actual implementation is delegated to domain-specific subclasses.  
+        """
+        raise NotImplementedError
+        
+    def make_transactions_for_invoice_payment(self, invoice, is_being_payed):
+        """
+        Usually, the action of paying/collecting an invoice generates one or more transactions 
+        within an accounting system;  on the other hand, details about these transaction(s) 
+        are strictly domain-dependent, so this hook is provided for concrete subclasses 
+        to override as needed.        
+        """
+        pass
+    
     def pay_invoice(self, invoice):
         """
         Pay an invoice issued to the subject owning this account system.
         
         If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued to another subject,
-        raise ``ValueError``.            
+        raise ``ValueError``.   
+        
+        Usually, the action of paying an invoice generates one or more transactions within an accounting system; 
+        on the other hand, details about these transaction(s) are strictly domain-dependent, so this class provides
+        the hook ``.make_transactions_for_invoice_payment()`` that concrete subclasses should override. 
         """
-        raise NotImplementedError
+        if isinstance(invoice, Invoice) and  invoice.recipient == self.subject:
+            self.make_transactions_for_invoice_payment(invoice, is_being_payed=True)                      
+            invoice.payed = True
+        else: 
+            raise ValueError
     
     def set_invoice_payed(self, invoice):
         """
@@ -297,5 +327,13 @@ class AccountingProxy(object):
         
         If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued by another subject,
         raise ``ValueError``.            
+        
+        Usually, the action of marking an invoice as 'payed' generates one or more transactions within an accounting system; 
+        on the other hand, details about these transaction(s) are strictly domain-dependent, so this class provides
+        the hook ``.make_transactions_for_invoice_payment()`` that concrete subclasses should override.
         """
-        raise NotImplementedError  
+        if isinstance(invoice, Invoice) and  invoice.issuer == self.subject:
+            self.make_transactions_for_invoice_payment(invoice, is_being_payed=False)                      
+            invoice.payed = True
+        else: 
+            raise ValueError          

@@ -280,4 +280,22 @@ class AccountingProxy(object):
     def __init__(self, subject):
         self.subject = subject
         root_account = None # to be implemented
-        self.accounts = AccountSystem(root_account) 
+        self.accounts = AccountSystem(root_account)
+        
+    def pay_invoice(self, invoice):
+        """
+        Pay an invoice issued to the subject owning this account system.
+        
+        If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued to another subject,
+        raise ``ValueError``.            
+        """
+        raise NotImplementedError
+    
+    def set_invoice_payed(self, invoice):
+        """
+        Mark as 'payed' an invoice issued by the subject owning this account system.
+        
+        If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued by another subject,
+        raise ``ValueError``.            
+        """
+        raise NotImplementedError  

@@ -147,14 +147,29 @@ class Account(models.Model):
         
         If no child with that name exists, raise ``Account.DoesNotExist``." 
         """      
-        raise NotImplementedError 
+        child = Account.objects.get(parent=self, name=name)
+        return child 
     
     def get_children(self):
         """
         Return the children for this account, as a ``QuerySet``.
         """
-        raise NotImplementedError
+        children = Account.objects.get(parent=self)
+        return children
     
+    def add_child(self, account):
+        """
+        Add ``account`` to this account's children accounts.
+          
+        If ``account`` is not a valid ``Account`` instance or this account already has  
+        a child account named as the given account instance, raise ``ValueError``. 
+        """
+        if not isinstance(account, Account):
+            raise ValueError("You can only add an ``Account`` instance as a child of another account")
+        if len(self.get_children().filter(name=account.name)) > 0:
+            raise ValueError("A child account already exists with name %s" % account.name)
+        account.parent = self
+        account.save()
     
     def __unicode__(self):
         return _("Account %(path)s of the system owned by %(subject)s") % {'path':self.path, 'subject':self.root.owner}
@@ -264,19 +279,32 @@ class AccountSystem(object):
         and return the account living at that path location.
         
         If no account exists at that location, raise ``Account.DoesNotExist``.
+        
+        If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
+        raise ``ValueError``.
+    
+        Path string syntax 
+        ==================    
+        A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` character; it must end with a character
+        *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless it contains just one character). 
+        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` character, and represent account names.            
         """
-        raise NotImplementedError
+        from accounting.utils import get_account_from_path
+        account = get_account_from_path(path, self.root)
+        return account
     
     def __setitem__(self, path, account):
         """
         Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
         and an ``Account`` instance; add that account to the children of the account living at that path location.
           
-        If the path location is invalid, or ``account`` is not a valid ``Account`` instance or the parent account 
-        has already a child named as the given account instance, raise ``ValueError``. 
+        If the given path location is invalid (see above fo details), or ``account`` is not a valid ``Account`` instance 
+        or the parent account has already a child named as the given account instance, raise ``ValueError``. 
         """ 
-        raise NotImplementedError
-    
+        from accounting.utils import get_account_from_path
+        parent_account = get_account_from_path(path, self.root)
+        parent_account.add_child(account)   
+
     
 class AccountingProxy(object):
     """

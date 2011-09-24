@@ -35,6 +35,12 @@ def get_root_account_for_subject(subject):
     root_account = Account.objects.get(parent=None, owner=subject)
     return root_account
 
+def _validate_account_path(path):
+    if not path.startswith(ACCOUNT_PATH_SEPARATOR):
+        raise ValueError("Valid paths must begin with a %s character" % ACCOUNT_PATH_SEPARATOR)
+    elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > 1:
+        raise ValueError("Valid paths can't end with a %s character" % ACCOUNT_PATH_SEPARATOR)
+    
 
 def get_account_from_path(path, root):
     """
@@ -52,15 +58,21 @@ def get_account_from_path(path, root):
     *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless it contains just one character). 
     Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` character, and represent account names.  
     """
-    
-    if not path.startswith(ACCOUNT_PATH_SEPARATOR):
-        raise ValueError("Valid paths must begin with a %s character" % ACCOUNT_PATH_SEPARATOR)
-    elif path.endswith(ACCOUNT_PATH_SEPARATOR):
-        raise ValueError("Valid paths can't end with a %s character" % ACCOUNT_PATH_SEPARATOR)
-    else: 
-        path_components = path.split(ACCOUNT_PATH_SEPARATOR)
-        
-    
+    # TODO: Unit tests
+    # FIXME: refine implementation
+    path = path.strip() # path normalization
+    path_components = path.split(ACCOUNT_PATH_SEPARATOR)
+    if root.is_root: # corner case
+        _validate_account_path(path)
+        if path == ACCOUNT_PATH_SEPARATOR: # e.g. path == '/'
+            return root  
+        path_components = path_components[1:] # strip initial '' component
+    child = root.get_child(path_components[0])
+    if len(path_components) == 1: # end recursion
+        return child
+    subpath = ACCOUNT_PATH_SEPARATOR.join(path_components[1:]) 
+    get_account_from_path(subpath, child) # recursion    
+
 
 def get_transaction_details(transaction):
     """

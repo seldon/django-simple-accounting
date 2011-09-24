@@ -232,7 +232,7 @@ class Invoice(models.Model):
     # when the invoice is due
     due_date = models.DateTimeField()
     # Does this invoice has been payed ?
-    payed = models.BooleanField()
+    is_payed = models.BooleanField()
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     

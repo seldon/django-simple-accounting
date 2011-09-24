@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError, ImproperlyConfigured
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
+from accounting.consts import ACCOUNT_PATH_SEPARATOR
 from accounting.fields import CurrencyField
 from accounting.managers import AccountManager  
 
@@ -108,9 +109,12 @@ class Account(models.Model):
     def path(self):
         """
         The tree path needed to reach this account from the root of the accounting system,
-        in the form ':account:subaccount:...' .
+        as a string of components separated by the ``ACCOUNT_PATH_SEPARATOR`` character(s).
         """
-        raise NotImplementedError 
+        if self.is_root: # stop recursion
+            return ACCOUNT_PATH_SEPARATOR
+        path = Account.path(self.parent) + ACCOUNT_PATH_SEPARATOR + self.name # recursion
+        return path 
     
     @property
     def is_root(self):

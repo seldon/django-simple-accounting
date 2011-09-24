@@ -10,7 +10,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
 from accounting.fields import CurrencyField
-from accounting.consts import ACCOUNT_PATH_SEPARATOR  
+from accounting.managers import AccountManager  
 
 from datetime import datetime
 
@@ -82,7 +82,9 @@ class Account(models.Model):
     kind = models.CharField(max_length=128, choices=settings.ACCOUNT_TYPES)
     placeholder = models.BooleanField(default=False)
     owner = models.ForeignKey(Subject)
+    objects = AccountManager()
     
+    # TODO: check that root accounts (and only those) have ``name=''``
     class Meta:
         unique_together = ('parent', 'name')
     
@@ -105,7 +107,7 @@ class Account(models.Model):
     @property
     def path(self):
         """
-        The tree path needed to reach this account from the root of the account system,
+        The tree path needed to reach this account from the root of the accounting system,
         in the form ':account:subaccount:...' .
         """
         raise NotImplementedError 
@@ -120,7 +122,7 @@ class Account(models.Model):
     @property
     def root(self):
         """
-        The root account for the account system this account belongs to.
+        The root account for the accounting system this account belongs to.
         """
         # FIXME: implement caching !
         if self.is_root:
@@ -131,7 +133,7 @@ class Account(models.Model):
     @property
     def account_system_owner(self):
         """
-        The subject owning the account system this account belongs to.
+        The subject owning the accounting system this account belongs to.
         """
         # FIXME: implement caching !
         if self.is_root:
@@ -246,13 +248,14 @@ class Invoice(models.Model):
 
 class AccountSystem(object):
     """
-    This class provide access to the tree of accounts an account system is made of.
+    This class provide access to the tree of accounts an accounting system is made of.
     
     It provides a dictionary-like interface for easier navigation through the account tree. 
     """
+    
     def __init__(self, root_account):
         self.root = root_account
-        self._accounts = models.Manager(Account)
+        self._accounts = AccountManager()
     
     ## operator overloading methods
     def __getitem__(self, path):
@@ -281,8 +284,9 @@ class AccountingProxy(object):
     """
     
     def __init__(self, subject):
+        from accounting.utils import get_root_account_for_subject
         self.subject = subject
-        root_account = None # to be implemented
+        root_account = get_root_account_for_subject(subject)
         self.accounts = AccountSystem(root_account)
     
     @property    
@@ -306,34 +310,58 @@ class AccountingProxy(object):
     
     def pay_invoice(self, invoice):
         """
-        Pay an invoice issued to the subject owning this account system.
+        Pay an invoice issued to the subject owning this accounting system.
         
         If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued to another subject,
         raise ``ValueError``.   
         
         Usually, the action of paying an invoice generates one or more transactions within an accounting system; 
-        on the other hand, details about these transaction(s) are strictly domain-dependent, so this class provides
-        the hook ``.make_transactions_for_invoice_payment()`` that concrete subclasses should override. 
+        on the other hand, details about these transaction(s) are strictly domain-dependent, so this method invokes
+        the hook ``AccountingProxy.make_transactions_for_invoice_payment()`` that concrete subclasses should override. 
         """
         if isinstance(invoice, Invoice) and  invoice.recipient == self.subject:
             self.make_transactions_for_invoice_payment(invoice, is_being_payed=True)                      
-            invoice.payed = True
+            invoice.is_payed = True
         else: 
             raise ValueError
     
     def set_invoice_payed(self, invoice):
         """
-        Mark as 'payed' an invoice issued by the subject owning this account system.
+        Mark as 'payed' an invoice issued by the subject owning this accounting system.
         
         If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued by another subject,
         raise ``ValueError``.            
         
         Usually, the action of marking an invoice as 'payed' generates one or more transactions within an accounting system; 
-        on the other hand, details about these transaction(s) are strictly domain-dependent, so this class provides
-        the hook ``.make_transactions_for_invoice_payment()`` that concrete subclasses should override.
+        on the other hand, details about these transaction(s) are strictly domain-dependent, so this method invokes
+        the hook ``AccountingProxy.make_transactions_for_invoice_payment()`` that concrete subclasses should override.
         """
         if isinstance(invoice, Invoice) and  invoice.issuer == self.subject:
             self.make_transactions_for_invoice_payment(invoice, is_being_payed=False)                      
-            invoice.payed = True
+            invoice.is_payed = True
         else: 
-            raise ValueError          
+            raise ValueError    
+        
+class AccountingDescriptor(object):
+    """
+    """
+    # TODO: provide more detailed error messages
+    # (maybe using ``contribute_to_class()`` Django hook to store 
+    # the attribute name this descriptor was given)
+    def __init__(self, proxy_class=AccountingProxy):
+        self.proxy_class = proxy_class
+    
+    def __get__(self, instance, owner):
+        
+        if instance is None:
+            raise AttributeError("This attribute can only be accessed from a %s instance" % owner.__name__)
+        
+        from accounting.utils import get_subject_from_subjective_instance
+        # retrieve the ``Subject`` instance bound to this model instance
+        subject = get_subject_from_subjective_instance(instance)
+        # instantiate the proxy class for accessing accounting functionality for this instance
+        # and return it to the caller instance
+        return self.proxy_class(subject)
+    
+    def __set__(self, instance, value):
+        raise NotImplementedError("This is a read-only attribute")

@@ -1,5 +1,66 @@
-from accounting.models import Transaction
 from django.core.exceptions import ValidationError
+from django.contrib.contenttypes.models import ContentType 
+
+from accounting.consts import ACCOUNT_PATH_SEPARATOR
+from accounting.models import subjective_models
+from accounting.models import Subject, Account, Transaction
+
+def get_subject_from_subjective_instance(instance):
+    """
+    Take a model instance ``instance`` and return the unique ``Subject`` instance
+    associated with it.
+    
+    If ``instance`` isn't an instance of a subjective model (as defined by ``settings.SUBJECTIVE_MODELS``),
+    raise ``TypeError``.
+    """
+    instance_ct = ContentType.objects.get_for_model(instance)  
+    if isinstance(instance, subjective_models):
+        subject = Subject.objects.get(content_type=instance_ct, object_id=instance.pk)
+    else:
+        raise TypeError("%s isn't a subjective instance" % instance)
+    return subject
+
+
+def get_root_account_for_subject(subject):
+    """
+    Retrieve the root account (if any) associated with a given ``Subject`` instance.
+    
+    Since we assume that a given subject can own at most one accounting system at time,
+    if more than one root account exist for the subject, an ``Account.MultipleObjectsReturned`` 
+    exception is raised.
+    
+    If, instead, no root accounts exist for the given subject, an ``Account.DoesNotExist`` 
+    exception is raised.  
+    """    
+    root_account = Account.objects.get(parent=None, owner=subject)
+    return root_account
+
+
+def get_account_from_path(path, root):
+    """
+    Take a path ``path`` in an account tree (as a string) and the root account (``root``) of that tree, 
+    and return the account living at that path location.
+        
+    If no account exists at that location, raise ``Account.DoesNotExist``.
+    
+    If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
+    raise ``ValueError``.
+    
+    Path string syntax 
+    ==================    
+    A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` character; it must end with a character
+    *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless it contains just one character). 
+    Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` character, and represent account names.  
+    """
+    
+    if not path.startswith(ACCOUNT_PATH_SEPARATOR):
+        raise ValueError("Valid paths must begin with a %s character" % ACCOUNT_PATH_SEPARATOR)
+    elif path.endswith(ACCOUNT_PATH_SEPARATOR):
+        raise ValueError("Valid paths can't end with a %s character" % ACCOUNT_PATH_SEPARATOR)
+    else: 
+        path_components = path.split(ACCOUNT_PATH_SEPARATOR)
+        
+    
 
 def get_transaction_details(transaction):
     """
@@ -35,5 +96,6 @@ def do_transaction(source, destination, plus, minus, kind, description, issuer, 
         err_msg = "Can't build a transaction out of these values: %(values)s.  The following error(s) occured: %(errors)s"\
             % {'values':get_transaction_details(transaction), 'errors':str(e.message_dict)}
         raise TypeError(err_msg)
-    
+
+
     

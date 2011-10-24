@@ -23,23 +23,24 @@ def get_subject_from_subjective_instance(instance):
 
 def get_root_account_for_subject(subject):
     """
-    Retrieve the root account (if any) associated with a given ``Subject`` instance.
+    Retrieve the root account of the accounting system (if any) associated with a given ``Subject`` instance.
     
-    Since we assume that a given subject can own at most one accounting system at time,
+    Since we assume that a given subject can own at most one accounting system at a time,
     if more than one root account exist for the subject, an ``Account.MultipleObjectsReturned`` 
     exception is raised.
     
-    If, instead, no root accounts exist for the given subject, an ``Account.DoesNotExist`` 
+    If, instead, no root account exists for the given subject, an ``Account.DoesNotExist`` 
     exception is raised.  
     """    
+    
     root_account = Account.objects.get(parent=None, owner=subject)
     return root_account
 
 def _validate_account_path(path):
     if not path.startswith(ACCOUNT_PATH_SEPARATOR):
-        raise ValueError("Valid paths must begin with a %s character" % ACCOUNT_PATH_SEPARATOR)
-    elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > 1:
-        raise ValueError("Valid paths can't end with a %s character" % ACCOUNT_PATH_SEPARATOR)
+        raise ValueError("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
+    elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > len(ACCOUNT_PATH_SEPARATOR):
+        raise ValueError("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
     
 
 def get_account_from_path(path, root):
@@ -54,9 +55,9 @@ def get_account_from_path(path, root):
     
     Path string syntax 
     ==================    
-    A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` character; it must end with a character
-    *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless it contains just one character). 
-    Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` character, and represent account names.  
+    A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
+    *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
+    Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names
     """
     # TODO: Unit tests
     # FIXME: refine implementation
@@ -91,6 +92,7 @@ def do_transaction(source, destination, plus, minus, kind, description, issuer, 
     If everything went well, return the transaction that was just created; 
     otherwise, raise a ``TypeError`` (including a descriptive error message).
     """
+    
     transaction = Transaction()
     transaction.source = source
     transaction.destination = destination

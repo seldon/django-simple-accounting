@@ -23,11 +23,11 @@ class Subject(models.Model):
     A 'subjective model' is defined as one whose instances can play some specific roles
     in a financial context, such as owning an account, being charged for an invoice, and so on.
     
-    This model use Django's ``ContentType`` framework in order to allow a model 
+    This model uses Django's ``ContentType`` framework in order to allow another model 
     to define foreign-key or many-to-many relationships with a generic subjective model.
     
-    For example, if the ``bar`` field in the ``Foo`` model class should be able to relate to 
-    several different subjective models (as for example ``Person``, ``Company``, etc.), 
+    For example, if the ``bar`` field in the ``Foo`` model class may relate to 
+    several different subjective models (e.g. ``Person``, ``Company``, etc.), 
     just declare it as follows:
     
     class Foo(models.Model):
@@ -66,7 +66,7 @@ class Account(models.Model):
     
     From an abstract point of view, there are two general kind of accounts:
     1) those which are stocks of money, either positive (assets) or negative (liabilities)
-    2) those which represent entry-points in the system (e.g incomes) or exit-points (e.g. expenses) from it   
+    2) those which represent entry-points in the system (e.g incomes) or exit-points from it (e.g. expenses)    
     
     As a data stucture, an account is just a collection of transactions
     between either two accounts in the system  or an account in the system
@@ -126,12 +126,13 @@ class Account(models.Model):
     @property
     def root(self):
         """
-        The root account for the accounting system this account belongs to.
+        The root account of the accounting system this account belongs to.
         """
         # FIXME: implement caching !
         if self.is_root:
             return self
         else: 
+            # recursion
             return self.parent.root
     
     @property
@@ -143,6 +144,7 @@ class Account(models.Model):
         if self.is_root:
             return self.owner
         else: 
+            # recursion
             return self.parent.account_system_owner
         
     def get_child(self, name):
@@ -185,8 +187,8 @@ class Transaction(models.Model):
     From an abstract point of view, a transaction is a just a money flow between two accounts, 
     of which at least one is internal to the system.     
     
-    A transaction can etiher increase/decrease the amount of money globally contained within the system,
-    or just represent a transfer between system stocks. 
+    A transaction can either increase/decrease the amount of money globally contained 
+    within the accounting system, or just represents an internal transfer between system stocks. 
     
     A transaction is characterized at least by:
     * a source account
@@ -196,7 +198,7 @@ class Transaction(models.Model):
     * a reason for the transfer
     * who autorized the transaction 
     """
-
+       
     # source account for the transaction
     source = models.ForeignKey(Account, related_name='outgoing_transaction_set')
     # target account for the transaction
@@ -204,7 +206,7 @@ class Transaction(models.Model):
     # A transaction can have a plus- and minus- part, or both
     plus_amount = CurrencyField(blank=True, null=True)
     minus_amount = CurrencyField(blank=True, null=True)
-    # given the transaction type, some fields can be auto-set (e.g. source/destination account)
+    # given a transaction type, some fields can be auto-set (e.g. source/destination account)
     kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES)
     # when the transaction happened
     date = models.DateTimeField(default=datetime.now)
@@ -214,7 +216,7 @@ class Transaction(models.Model):
     issuer = models.ForeignKey(Subject)     
 
     def __unicode__(self):
-        return _("%(type)s issued by %(issuer)s at %(date)s") % {'type' : self.type, 'issuer' : self.issuer, 'date' : self.date}
+        return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}
     
     @property
     def net_amount(self):
@@ -235,9 +237,9 @@ class Invoice(models.Model):
     """
     An invoice document issued by a subject against another subject.
     
-    This model contains metadata useful for invoice management, embodying the actual document as a `FileField`. 
+    This model contains metadata useful for invoice management, embodying the actual document as a ``FileField``. 
     
-    Those metadata can be used to link invoices (particularly supplier ones) with GAS accounting management;    
+    These metadata can be used to link invoices with related accounting systems (i.e. those of issuer and recipient subjects);    
     for example, when an invoice is payed, the system could automatically create a transaction reflecting this action.     
     """
     # who issued the invoice
@@ -253,12 +255,13 @@ class Invoice(models.Model):
     # when the invoice is due
     due_date = models.DateTimeField()
     # Does this invoice has been payed ?
-    is_payed = models.BooleanField()
+    is_payed = models.BooleanField(default=False)
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     
     def __unicode__(self):
-        return _("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s" % {'issuer' : self.issuer, 'recipient' : self.recipient, 'issue_date' : self.issue_date} )
+        return _("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s"\
+                 % {'issuer' : self.issuer, 'recipient' : self.recipient, 'issue_date' : self.issue_date} )
     
     @property
     def total_amount(self):
@@ -267,9 +270,9 @@ class Invoice(models.Model):
 
 class AccountSystem(object):
     """
-    This class provide access to the tree of accounts an accounting system is made of.
+    This class provides access to the tree of accounts an accounting system is made of.
     
-    It provides a dictionary-like interface for easier navigation through the account tree. 
+    It implements a dictionary-like interface for easier navigation through the account tree. 
     """
     
     def __init__(self, root_account):
@@ -289,10 +292,11 @@ class AccountSystem(object):
     
         Path string syntax 
         ==================    
-        A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` character; it must end with a character
-        *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless it contains just one character). 
-        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` character, and represent account names.            
+        A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
+        *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
+        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names.            
         """
+        
         from accounting.utils import get_account_from_path
         account = get_account_from_path(path, self.root)
         return account
@@ -302,8 +306,9 @@ class AccountSystem(object):
         Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
         and an ``Account`` instance; add that account to the children of the account living at that path location.
           
-        If the given path location is invalid (see above fo details), or ``account`` is not a valid ``Account`` instance 
-        or the parent account has already a child named as the given account instance, raise ``ValueError``. 
+        If the given path location is invalid (see ``__getitem__``'s docstring fo details), 
+        or ``account`` is not a valid ``Account`` instance, or the parent account has already a child named 
+        as the given account instance, raise ``ValueError``. 
         """ 
         from accounting.utils import get_account_from_path
         parent_account = get_account_from_path(path, self.root)
@@ -312,7 +317,7 @@ class AccountSystem(object):
     
 class AccountingProxy(object):
     """
-    This class is meant to be used as a proxy for accessing accounting-related functionalities.
+    This class is meant to be used as a proxy for accessing accounting-related functionality.
     """
     
     def __init__(self, subject):
@@ -327,14 +332,14 @@ class AccountingProxy(object):
         Return the main account of the current subject (if any).
         
         Since the semantic of 'main account' is strongly domain-dependent, 
-        actual implementation is delegated to domain-specific subclasses.  
+        actual implementation of this method is delegated to domain-specific subclasses.  
         """
         raise NotImplementedError
         
     def make_transactions_for_invoice_payment(self, invoice, is_being_payed):
         """
-        Usually, the action of paying/collecting an invoice generates one or more transactions 
-        within an accounting system;  on the other hand, details about these transaction(s) 
+        Usually, the action of paying/collecting an invoice triggers one or more transactions 
+        within one or more accounting systems;  on the other hand, details about these transaction(s) 
         are strictly domain-dependent, so this hook is provided for concrete subclasses 
         to override as needed.        
         """
@@ -347,14 +352,16 @@ class AccountingProxy(object):
         If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued to another subject,
         raise ``ValueError``.   
         
-        Usually, the action of paying an invoice generates one or more transactions within an accounting system; 
+        Usually, the action of paying an invoice triggers one or more transactions within one or more accounting systems; 
         on the other hand, details about these transaction(s) are strictly domain-dependent, so this method invokes
         the hook ``AccountingProxy.make_transactions_for_invoice_payment()`` that concrete subclasses should override. 
         """
+        
         if isinstance(invoice, Invoice) and  invoice.recipient == self.subject:
             self.make_transactions_for_invoice_payment(invoice, is_being_payed=True)                      
             invoice.is_payed = True
         else: 
+            # FIXME: provide a more informative error message
             raise ValueError
     
     def set_invoice_payed(self, invoice):
@@ -364,14 +371,16 @@ class AccountingProxy(object):
         If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued by another subject,
         raise ``ValueError``.            
         
-        Usually, the action of marking an invoice as 'payed' generates one or more transactions within an accounting system; 
+        Usually, the action of paying an invoice triggers one or more transactions within one or more accounting systems; 
         on the other hand, details about these transaction(s) are strictly domain-dependent, so this method invokes
         the hook ``AccountingProxy.make_transactions_for_invoice_payment()`` that concrete subclasses should override.
         """
+        
         if isinstance(invoice, Invoice) and  invoice.issuer == self.subject:
             self.make_transactions_for_invoice_payment(invoice, is_being_payed=False)                      
             invoice.is_payed = True
         else: 
+            # FIXME: provide a more informative error message
             raise ValueError    
         
 class AccountingDescriptor(object):
@@ -396,4 +405,4 @@ class AccountingDescriptor(object):
         return self.proxy_class(subject)
     
     def __set__(self, instance, value):
-        raise NotImplementedError("This is a read-only attribute")
+        raise AttributeError("This is a read-only attribute")

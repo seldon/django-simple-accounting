@@ -28,6 +28,7 @@ from django.contrib.contenttypes import generic
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
 from accounting.fields import CurrencyField
 from accounting.managers import AccountManager  
+from accounting.exceptions import MalformedAccountTree
 
 from datetime import datetime
 
@@ -57,7 +58,18 @@ class Subject(models.Model):
     
     def __unicode__(self):
         return " %(ct)s %(instance)s" % {'ct':str(self.content_type).capitalize(), 'instance':self.instance}
-
+    
+    @property
+    def accounting_system(self):
+        """
+        The accounting system managed by this subject, if any.
+        If no accounting system has been setup for this subject, raise ``AttributeError``.
+        """
+        try:
+            return self.account_system
+        except AccountSystem.DoesNotExist:
+            raise AttributeError(_(u"No accounting system has been setup for this subject %s") % self)
+            
 
 try:
     subjective_models = [get_model(*model_str.split('.')) for model_str in settings.SUBJECTIVE_MODELS]
@@ -76,34 +88,103 @@ def subjectify(sender, instance, created, **kwargs):
         Subject.objects.create(content_type=ct, object_id=instance.pk)     
     
 
+class AccountSystem(models.Model):
+    """
+    A double-entry accounting system.
+    
+    Each accounting system is owned by a subject (i.e. a ``Subject`` instance), who manages it;
+    by design, each subject may own at most one accounting system.
+    
+    Essentially, an accounting system is just a way to group together a hierarchy of accounts 
+    (instances of the ``Account`` model), binding them to a single subjet.
+    
+    Furthermore, this class implements a dictionary-like interface providing for easier navigation 
+    through the account tree.
+    """
+    # the subject operating this accounting system
+    owner = models.OneToOneField(Subject, related_name='account_system')
+    # the root account of this system
+    @property
+    def root(self):
+        # FIXME: implement caching !
+        for account in self.accounts:
+            if account.is_root: return account
+        # if we arrived here, no root account was created for this accounting system !
+        raise MalformedAccountTree(_(u"No root account was created for this account system !\n %s") % self)
+    
+    def __unicode__(self):
+        return _(u"Accounting system for %(subject)s" % {'subject': self.owner})
+    
+    ## operator overloading methods
+    def __getitem__(self, path):
+        """
+        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
+        and return the account living at that path location.
+        
+        If no account exists at that location, raise ``Account.DoesNotExist``.
+        
+        If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
+        raise ``ValueError``.
+    
+        Path string syntax 
+        ==================    
+        A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
+        *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
+        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names.            
+        """
+        
+        from accounting.utils import get_account_from_path
+        account = get_account_from_path(path, self.root)
+        return account
+    
+    def __setitem__(self, path, account):
+        """
+        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
+        and an ``Account`` instance; add that account to the children of the account living at that path location.
+          
+        If the given path location is invalid (see ``__getitem__``'s docstring fo details), 
+        or ``account`` is not a valid ``Account`` instance, or the parent account has already a child named 
+        as the given account instance, raise ``ValueError``. 
+        """ 
+        from accounting.utils import get_account_from_path
+        parent_account = get_account_from_path(path, self.root)
+        parent_account.add_child(account)   
+
+    
+    
 class Account(models.Model):
     """
-    An account within a double-entry accounting system.
+    An account within a double-entry accounting system (i.e., an ``AccountSystem`` model instance).
     
     From an abstract point of view, there are two general kind of accounts:
     1) those which are stocks of money, either positive (assets) or negative (liabilities)
     2) those which represent entry-points in the system (e.g incomes) or exit-points from it (e.g. expenses)    
     
-    As a data stucture, an account is just a collection of transactions
-    between either two accounts in the system  or an account in the system
-    and one outside it. 
+    As a data stucture, an account is essentially a collection of transactions between either:
+    * two accounts in the system the account belongs to 
+    * an account in the system the account belongs to and one belonging to another system 
     
-    Accounts are hierarchically organized in a tree-like structure, 
-    and are owned by somebody.  
-    
-    An account can be merely a placeholder (just a container of subaccounts, no transactions).  
+    Accounts within a system are hierarchically organized in a tree-like structure; 
+    an account can be merely a placeholder (just a container of subaccounts, no transactions).  
     """
     
+    system = models.ForeignKey(AccountSystem, related_name='accounts')
     parent = models.ForeignKey('Account', null=True, blank=True)
     name = models.CharField(max_length=128)
     kind = models.CharField(max_length=128, choices=settings.ACCOUNT_TYPES)
     placeholder = models.BooleanField(default=False)
-    owner = models.ForeignKey(Subject)
     objects = AccountManager()
     
     # TODO: check that root accounts (and only those) have ``name=''``
     class Meta:
         unique_together = ('parent', 'name')
+        
+    @property
+    def owner(self):
+        """
+        Who own this account. 
+        """
+        return self.system.owner
     
     @property
     def balance(self):
@@ -144,25 +225,8 @@ class Account(models.Model):
         """
         The root account of the accounting system this account belongs to.
         """
-        # FIXME: implement caching !
-        if self.is_root:
-            return self
-        else: 
-            # recursion
-            return self.parent.root
+        return self.system.root        
     
-    @property
-    def account_system_owner(self):
-        """
-        The subject owning the accounting system this account belongs to.
-        """
-        # FIXME: implement caching !
-        if self.is_root:
-            return self.owner
-        else: 
-            # recursion
-            return self.parent.account_system_owner
-        
     def get_child(self, name):
         """
         Return the child of this account having the name provided as argument.
@@ -284,63 +348,15 @@ class Invoice(models.Model):
         """Total amount for the invoice (including taxes)."""
         return self.net_amount + self.taxes  
 
-class AccountSystem(object):
-    """
-    This class provides access to the tree of accounts an accounting system is made of.
-    
-    It implements a dictionary-like interface for easier navigation through the account tree. 
-    """
-    
-    def __init__(self, root_account):
-        self.root = root_account
-        self._accounts = AccountManager()
-    
-    ## operator overloading methods
-    def __getitem__(self, path):
-        """
-        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
-        and return the account living at that path location.
-        
-        If no account exists at that location, raise ``Account.DoesNotExist``.
-        
-        If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
-        raise ``ValueError``.
-    
-        Path string syntax 
-        ==================    
-        A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
-        *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
-        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names.            
-        """
-        
-        from accounting.utils import get_account_from_path
-        account = get_account_from_path(path, self.root)
-        return account
-    
-    def __setitem__(self, path, account):
-        """
-        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
-        and an ``Account`` instance; add that account to the children of the account living at that path location.
-          
-        If the given path location is invalid (see ``__getitem__``'s docstring fo details), 
-        or ``account`` is not a valid ``Account`` instance, or the parent account has already a child named 
-        as the given account instance, raise ``ValueError``. 
-        """ 
-        from accounting.utils import get_account_from_path
-        parent_account = get_account_from_path(path, self.root)
-        parent_account.add_child(account)   
-
-    
+  
 class AccountingProxy(object):
     """
     This class is meant to be used as a proxy for accessing accounting-related functionality.
     """
     
     def __init__(self, subject):
-        from accounting.utils import get_root_account_for_subject
         self.subject = subject
-        root_account = get_root_account_for_subject(subject)
-        self.accounts = AccountSystem(root_account)
+        self.accounts = subject.accounting_system
     
     @property    
     def account(self):

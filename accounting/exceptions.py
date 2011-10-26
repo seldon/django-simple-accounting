@@ -15,3 +15,10 @@
 # along with ``django-simple-accounting``. If not, see <http://www.gnu.org/licenses/>.
 
 # definitions of custom exceptions go here
+
+class MalformedAccountTree(Exception):
+    """
+    Raised if the tree of accounts associated with an accounting system is malformed.
+    """
+    pass
+        

@@ -19,7 +19,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
 from accounting.models import subjective_models
-from accounting.models import Subject, Account, Transaction
+from accounting.models import Subject, Transaction
 
 def get_subject_from_subjective_instance(instance):
     """
@@ -36,21 +36,6 @@ def get_subject_from_subjective_instance(instance):
         raise TypeError("%s isn't a subjective instance" % instance)
     return subject
 
-
-def get_root_account_for_subject(subject):
-    """
-    Retrieve the root account of the accounting system (if any) associated with a given ``Subject`` instance.
-    
-    Since we assume that a given subject can own at most one accounting system at a time,
-    if more than one root account exist for the subject, an ``Account.MultipleObjectsReturned`` 
-    exception is raised.
-    
-    If, instead, no root account exists for the given subject, an ``Account.DoesNotExist`` 
-    exception is raised.  
-    """    
-    
-    root_account = Account.objects.get(parent=None, owner=subject)
-    return root_account
 
 def _validate_account_path(path):
     if not path.startswith(ACCOUNT_PATH_SEPARATOR):

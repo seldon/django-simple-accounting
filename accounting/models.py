@@ -271,12 +271,16 @@ class Account(models.Model):
         """
         if not isinstance(account, Account):
             raise ValueError("You can only add an ``Account`` instance as a child of another account")
-        if len(self.get_children().filter(name=account.name)) > 0:
+        try: 
+            self.get_child(name=account.name)
+        except Account.DoesNotExist:
+            account.parent = self
+            account.save()
+        else:
             raise ValueError("A child account already exists with name %s" % account.name)
-        account.parent = self
-        account.save()
-    
-
+          
+            
+            
 class Transaction(models.Model):
     """
     A transaction within a double-entry accounting system.

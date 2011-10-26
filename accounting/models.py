@@ -194,10 +194,7 @@ class Account(models.Model):
         # perform model validation
         self.full_clean()
         super(Account, self).save(*args, **kwargs)  
-    
-    class Meta:
-        unique_together = ('parent', 'name')
-        
+         
     @property
     def owner(self):
         """
@@ -278,8 +275,11 @@ class Account(models.Model):
             account.save()
         else:
             raise ValueError("A child account already exists with name %s" % account.name)
+        
           
-            
+    class Meta:
+        unique_together = ('parent', 'name')
+              
             
 class Transaction(models.Model):
     """

@@ -320,6 +320,73 @@ class CashFlow(models.Model):
     def is_outgoing(self):
         return self.amount < 0
         
+
+class Trajectory(models.Model):    
+    """
+    This model describes the (conceptual) path followed by a flow of money 
+    within (or across) accounting systems.
+    
+    Since a single transaction may involve more than two accounts (a.k.a. *split transactions*),
+    multiple flows of money may be needed to describe it. 
+    
+    So, a general transaction can be thought of as a set of money flows, 
+    which, in turn, can be abstracted as *trajectories* sharing a common starting account 
+    (actually, a ``CashFlow`` instance wrapping that account). 
+        
+    A trajectory can either be fully contained within a single accounting system, 
+    or extend across (at most) two of them.  We call the former ones *internal trajectories*,
+    since they describe a flow of money internal to a given accounting system; the latter ones, 
+    instead, describe flows of money involving accounts belonging to different systems.
+    
+    By definition, the shared account - that from which all the trajectories composing a transaction
+    start - must be a stock-like account (since flux-like accounts can't act as starting or ending points
+    due to their own nature - they are waypoints). 
+    
+    A general trajectory is completely specified by these pieces of information:
+    * the exit point from the first accounting system (if any) 
+    * the entry point to the second accounting system (if any)
+    * the target account (actually, the target *flow*)
+    
+    Note that entry/exit points must be flux-like accounts (e.g. incomes/expenses), 
+    while the target account must be a stock-like one (e.g. assets/liabilities). 
+    
+    For internal trajectories, entry/exit points are missing, by definition (since they are contained within 
+    a single accounting system).    
+    """
+    
+    entry_point = models.ForeignKey(Account, null=True, blank=True)
+    exit_point = models.ForeignKey(Account, null=True, blank=True)
+    target = models.ForeignKey(CashFlow)
+    
+    # model-level custom validation goes here
+    def clean(self):
+        # TODO: if ``entry point`` is null, so must be ``exit_point``
+        # TODO: ``entry_point`` must be a flux-like account
+        # TODO: ``exit_point`` must be a flux-like account
+        # TODO: ``target`` must be a stock-like account
+        # TODO: ``exit_point`` must belong to the same accounting system as ``target``
+        pass
+        
+    def save(self, *args, **kwargs):
+        # perform model validation
+        self.full_clean()
+        super(Trajectory, self).save(*args, **kwargs)
+           
+    @property
+    def is_internal(self):
+        """
+        If this trajectory is contained within a single accounting system, 
+        return ``True``, ``False`` otherwise.
+        """
+        return self.exit_point == None 
+
+    @property
+    def target_system(self):
+        """
+        Return the accounting system where this trajectory ends.
+        """
+        return self.entry_point.system
+    
             
 class Transaction(models.Model):
     """

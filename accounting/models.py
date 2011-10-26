@@ -383,9 +383,16 @@ class Trajectory(models.Model):
     @property
     def target_system(self):
         """
-        Return the accounting system where this trajectory ends.
+        The accounting system where this trajectory ends.
         """
         return self.entry_point.system
+    
+    @property
+    def amount(self):
+        """
+        The amount of money flowing through this trajectory.
+        """
+        return self.target.amount
     
             
 class Transaction(models.Model):

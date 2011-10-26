@@ -175,7 +175,26 @@ class Account(models.Model):
     placeholder = models.BooleanField(default=False)
     objects = AccountManager()
     
-    # TODO: check that root accounts (and only those) have ``name=''``
+    def __unicode__(self):
+        return _("Account %(path)s owned by %(subject)s") % {'path':self.path, 'subject':self.owner}
+    
+    # model-level custom validation goes here
+    def clean(self):
+        # check that this account belongs to the same accounting system of its parent (if any)
+        if self.parent:
+            try:
+                assert self.system == self.parent.system
+            except AssertionError:
+                raise ValidationError(_(u"This account and its parent belong to different accounting systems."))
+        # TODO: check that stock-like accounts (assets, liabilities) are not mixed with flux-like ones (incomes, expenses)
+        # TODO: check that root accounts (and only those) have ``name=''``
+        # TODO: account names can't contain ``ACCOUNT_PATH_SEPARATOR``
+                
+    def save(self, *args, **kwargs):
+        # perform model validation
+        self.full_clean()
+        super(Account, self).save(*args, **kwargs)  
+    
     class Meta:
         unique_together = ('parent', 'name')
         
@@ -257,8 +276,6 @@ class Account(models.Model):
         account.parent = self
         account.save()
     
-    def __unicode__(self):
-        return _("Account %(path)s of the system owned by %(subject)s") % {'path':self.path, 'subject':self.root.owner}
 
 class Transaction(models.Model):
     """

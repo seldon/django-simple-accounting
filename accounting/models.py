@@ -403,56 +403,101 @@ class Trajectory(models.Model):
             
 class Transaction(models.Model):
     """
-    A transaction within a double-entry accounting system.
+    A transaction between accounts.
     
-    From an abstract point of view, a transaction is a just a money flow between two accounts, 
-    of which at least one is internal to the system.     
+    From an abstract point of view, a transaction is just a set of flows of money
+    occurring between two or more accounts belonging to one or more accounting system(s).
     
-    A transaction can either increase/decrease the amount of money globally contained 
-    within the accounting system, or just represents an internal transfer between system stocks. 
+    As a data structure, a transaction can be modeled by a 2-tuple: 
     
-    A transaction is characterized at least by:
-    * a source account
-    * a destination/target account
-    * the amount of money transferred from/to both directions
+    ``(source, trajectories)``
+    
+    where:
+    * ``source`` is a ``CashFlow`` instance describing the source account 
+      and the amount of money flowing from/to it
+    * ``trajectories`` is a tuple of ``Trajectory`` instances describing the
+      partial flows (a.k.a. *splits*) composing the transaction, and their
+      paths through the accounting systems involved in the transaction.   
+    
+    So, a transaction can be defined as a collection of splits 
+    sharing the same source account.
+    
+    A transaction is said to be: 
+    - *simple* if the source and target accounts belong to the same accounting system
+    - *split* if it comprises more than one trajectory (i.e., splits)
+    
+    Some facts deriving from these definitions:
+    - simple transactions don't modify the total amount of money contained 
+      within the (single) accounting system they operate on
+    - on the other hand, non-simple transactions transfer money from/to an accounting system
+      to/from one or more other accounting system(s)
+    - the amount of money flowing from/to the source account equals the algebraic sum of those 
+      flowing through the splits comprising the transaction (this descends from 
+      the *law of conservation of money*)
+    
+    Furthermore, a transaction is characterized by some metadata:
     * the date when it happened
     * a reason for the transfer
-    * who autorized the transaction 
-    """
-       
-    # source account for the transaction
-    source = models.ForeignKey(Account, related_name='outgoing_transaction_set')
-    # target account for the transaction
-    destination = models.ForeignKey(Account, related_name='incoming_transaction_set')
-    # A transaction can have a plus- and minus- part, or both
-    plus_amount = CurrencyField(blank=True, null=True)
-    minus_amount = CurrencyField(blank=True, null=True)
-    # given a transaction type, some fields can be auto-set (e.g. source/destination account)
-    kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES)
+    * who autorized the transaction
+    * the type of the transaction 
+     
+    """   
     # when the transaction happened
     date = models.DateTimeField(default=datetime.now)
     # what the transaction represents
     description = models.CharField(max_length=512, help_text=_("Reason of the transaction"))
     # who triggered the transaction
-    issuer = models.ForeignKey(Subject)     
-
+    issuer = models.ForeignKey(Subject, related_name='issued_transactions_set')
+    # source flows for this transaction
+    source = models.ForeignKey(CashFlow)     
+    # trajectory components
+    component_set = models.ManyToManyField(Trajectory)
+    # the type of this transaction
+    kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES)
+    
     def __unicode__(self):
         return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}
     
-    @property
-    def net_amount(self):
-        return self.plus_amount - self.minus_amount
-    
     # model-level custom validation goes here
     def clean(self):
-        if not (self.plus_amount or self.minus_amount):
-            raise ValidationError(_("You must specify either a plus(+) or minus(-) amount for this transaction"))
+        # TODO: check that the *law of conservation of money* is satisfied
+        # TODO: check that exit points belong to the same accounting system 
+        # TODO: as the source account
+        # TODO: for internal trajectories, check that target account belongs 
+        # TODO: to the same accounting system as the source account
+        pass
         
     def save(self, *args, **kwargs):
         # perform model validation
         self.full_clean()
         super(Transaction, self).save(*args, **kwargs)
         
+    @property
+    def components(self):
+        return self.component_set.all()
+    
+        
+    @property
+    def is_split(self):
+        """
+        Return ``True if this transaction is a split one;
+        ``False`` otherwise.
+        """
+        # a transaction is split iff it comprises more than one trajectory
+        return len(self.components) > 1
+    
+    @property
+    def is_simple(self):
+        """
+        Return ``True if this transaction is a simple one;
+        ``False`` otherwise.
+        """
+        # a transaction is simple iff it's contained within a single accounting system
+        simple = True
+        for trajectory in self.components:
+            if not trajectory.is_internal:
+                simple = False                
+        return simple   
 
 class LedgerEntry(models.Model):
     """

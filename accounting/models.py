@@ -169,7 +169,7 @@ class Account(models.Model):
     """
     
     system = models.ForeignKey(AccountSystem, related_name='accounts')
-    parent = models.ForeignKey('Account', null=True, blank=True)
+    parent = models.ForeignKey('self', null=True, blank=True)
     name = models.CharField(max_length=128)
     kind = models.CharField(max_length=128, choices=settings.ACCOUNT_TYPES)
     placeholder = models.BooleanField(default=False)

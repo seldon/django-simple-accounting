@@ -279,7 +279,47 @@ class Account(models.Model):
           
     class Meta:
         unique_together = ('parent', 'name')
-              
+        
+
+class CashFlow(models.Model):
+    """
+    A money flow from/to a given account.
+    
+    Money flows make sense only for stock-like accounts (e.g. asset/liabilities),
+    not for flux-like ones (e.g. incomes/expenses).
+    
+    A flow is uniquely identified by these two pieces of information:
+    * the account (an ``Account`` instance) from/to which the money flows
+    * the amount of the flow itself (i.e., how much money flows)
+    
+    The sign of the flow determines its direction: by convention, a positive flow is
+    considered to be incoming, while a negative one is outgoing.  As a consequence,
+    incoming flows increase the amount of the stock of money represented by the account, 
+    while outgoing ones decrease it.    
+    """
+    # from/to where the money flows
+    account = models.ForeignKey(Account, related_name='flow_set')
+    # how much money flows from/to that account
+    amount = CurrencyField()
+    
+    # model-level custom validation goes here
+    def clean(self):
+        # TODO: check that ``account`` is stock-like
+        pass
+    
+    def save(self, *args, **kwargs):
+        # perform model validation
+        self.full_clean()
+        super(CashFlow, self).save(*args, **kwargs)  
+     
+    @property
+    def is_incoming(self):
+        return self.amount > 0 
+    
+    @property
+    def is_outgoing(self):
+        return self.amount < 0
+        
             
 class Transaction(models.Model):
     """

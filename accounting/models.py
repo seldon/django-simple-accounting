@@ -836,10 +836,58 @@ class AccountingProxy(object):
         
 class AccountingDescriptor(object):
     """
-    A descriptor managing access to accounting-related functionality of a model. 
-    """
-    # FIXME: provide a mechanism for binding this descriptor to economic models
+    A descriptor providing an accounting API for models.
     
+    Since accounting makes sense only for subjective models, this descriptor works 
+    only in conjunction with them. 
+    
+    Usage
+    =====
+    Say that you have a model ``Foo`` representing an economic subject in a given application domain: 
+    in order to enable the accounting API for it, just use the following syntax:
+    
+        from accounting.models import economic_subject, AccountingDescriptor 
+         
+         @economic_subject
+         class Foo(models.Model):
+             # model definition
+             accounting =  AccountingDescriptor()
+    
+    Then, when you create an instance of model ``Foo``:
+    
+        foo = Foo()
+        foo.save()
+    
+    you can access the accounting API via the ``accounting`` instance's attribute:
+    
+        foo.accounting
+        
+    For example, the accounting system owned by that (subjective) model instance 
+    can be retrieved as follows:
+        
+        foo.accounting.accounts
+    
+    Note that you can use a different name than ``accounting`` as the entry point to
+    the accounting API (as long as it doesn't clash with an existing attribute of the
+    model class, of course).
+    
+    If needed, you can also customize the proxy class implementing the accounting API: 
+    just pass it as an argument when instantiating the descriptor:
+        
+        from accounting.models import economic_subject, AccountingDescriptor
+        from accounting.models import AccountingProxy
+        
+        class MyProxyClass(AccountingProxy)
+            # override/customize methods as needed
+    
+         @economic_subject
+         class Foo(models.Model):
+             # model definition
+             accounting =  AccountingDescriptor(MyProxyClass)
+             
+    This may be useful if you want to add domain-specific behaviour to the base accounting API. 
+    """
+        
     def __init__(self, proxy_class=AccountingProxy):
         self.proxy_class = proxy_class
     

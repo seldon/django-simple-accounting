@@ -35,9 +35,9 @@ from datetime import datetime
 
 class Subject(models.Model):
     """ 
-    A wrapper model intended to provide an uniform interface to 'subjective models'. 
+    A wrapper model intended to provide an uniform interface to *subjective models*. 
     
-    A 'subjective model' is defined as one whose instances can play some specific roles
+    A *subjective model* is defined as one whose instances can play some specific roles
     in a financial context, such as owning an account, being charged for an invoice, and so on.
     
     This model uses Django's ``ContentType`` framework in order to allow another model 
@@ -54,10 +54,10 @@ class Subject(models.Model):
     """
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField()
-    instance = generic.GenericForeignKey(ct_field="content_type", fk_field="object_id")
+    instance = generic.GenericForeignKey(ct_field='content_type', fk_field='object_id')
     
     def __unicode__(self):
-        return " %(ct)s %(instance)s" % {'ct':str(self.content_type).capitalize(), 'instance':self.instance}
+        return _(u"Economic subject: %(instance)s") % {'instance':self.instance}
     
     @property
     def accounting_system(self):

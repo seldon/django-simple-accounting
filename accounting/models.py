@@ -574,6 +574,13 @@ class Invoice(models.Model):
     These metadata can be used to link invoices with related accounting systems (i.e. those of issuer and recipient subjects);    
     for example, when an invoice is payed, the system could automatically create a transaction reflecting this action.     
     """
+    (ISSUED, OVERDUE, PAYED, PAYMENT_CONFIRMED) = range(0,4)
+    INVOICE_STATES = (
+        (ISSUED), _('Issued'),
+        (OVERDUE), _('Overdue'),
+        (PAYED), _('Payed'),
+        (PAYMENT_CONFIRMED), _('Payment confirmed'),
+    )
     # who issued the invoice
     issuer = models.ForeignKey(Subject, related_name='issued_invoice_set')
     # who have to pay for the invoice
@@ -586,8 +593,9 @@ class Invoice(models.Model):
     issue_date = models.DateTimeField()
     # when the invoice is due
     due_date = models.DateTimeField()
-    # Does this invoice has been payed ?
-    is_payed = models.BooleanField(default=False)
+    # current status of this invoice
+    # TODO: implement full-fledged workflow management 
+    status = models.CharField(max_lenght=20, choices=INVOICE_STATES)
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     

@@ -86,8 +86,88 @@ def subjectify(sender, instance, created, **kwargs):
     if sender in subjective_models and created:
         ct = ContentType.objects.get_for_model(sender)
         Subject.objects.create(content_type=ct, object_id=instance.pk)     
-    
 
+
+class AccountType(models.Model):
+    """
+    The type of an account within an accounting system.
+    
+    All accounts are either *stock-like* or *flux-like*:
+    - *stock-like* accounts represent stocks (i.e. deposits) of money, 
+      either positive (e.g. cash) or negative (e.g. debts)
+    - *flux-like* accounts represent flows of  money incoming (e.g. a salary) 
+      or outgoing (e.g. purchases of goods/services) to/from an accounting system
+      
+    Visually, stock-like accounts can be thought of as being internal to the 
+    accounting system they belong to, while flux-like ones lie on the "border".
+    
+    Given these definitions, it descends that there are 4 basic account types, i.e.:
+    - ASSET (positive stock-like)
+    - LIABILITY (negative stock-like)
+    - INCOME (positive flux-like)
+    - EXPENSE (negative flux-like)
+    
+    Every other account type derives from one of these basic types.
+    
+    Implementing account types as model instances allows client code to define custom types
+    (e.g. *bank account*, *cash*, *credit card*, etc.) with domain-specific semantics.
+    """
+    
+    (INCOME, EXPENSE, ASSET, LIABILITY) = range(0,4) 
+
+    BASE_ACCOUNT_TYPES = (
+        (INCOME, _('Incomes')),
+        (EXPENSE, _('Expenses')),
+        (ASSET, _('Assets')),
+        (LIABILITY, _('Liabilities')),
+    )
+    
+    name = models.CharField(max_lenght=50)
+    base_type = models.CharField(max_lenght=20, choices=BASE_ACCOUNT_TYPES)
+    
+    def normalize_account_type_name(self):
+        """
+        Normalize the name of an account type before saving it to the DB.
+        """
+        # make sure that names of account types are uppercase strings
+        self.name = self.name.upper()
+    
+    def save(self, *args, **kwargs):
+        self.normalize_account_type_name()
+        super(AccountType, self).save(*args, **kwargs)  
+  
+    
+    @property
+    def is_stock(self):
+        """
+        Return ``True`` if this account is a stock-like one,
+        ``False`` otherwise.
+        """
+        return self.base_type in (AccountType.ASSET, AccountType.LIABILITY)
+    
+    @property
+    def is_flux(self):
+        """
+        Return ``True`` if this account is a flux-like one,
+        ``False`` otherwise.
+        """
+        return self.base_type in (AccountType.INCOME, AccountType.EXPENSE)
+    
+    @property
+    def accounts(self):
+        """
+        Return the queryset of all accounts having this type.
+        """
+        return self.account_set.all()
+   
+
+## Setup basic account types
+AccountType.objects.create(name='INCOME', base_type=AccountType.INCOME)
+AccountType.objects.create(name='EXPENSE', base_type=AccountType.EXPENSE)
+AccountType.objects.create(name='ASSET', base_type=AccountType.ASSET)
+AccountType.objects.create(name='LIABILITY', base_type=AccountType.LIABILITY)
+
+    
 class AccountSystem(models.Model):
     """
     A double-entry accounting system.
@@ -171,7 +251,7 @@ class Account(models.Model):
     system = models.ForeignKey(AccountSystem, related_name='accounts')
     parent = models.ForeignKey('self', null=True, blank=True)
     name = models.CharField(max_length=128)
-    kind = models.CharField(max_length=128, choices=settings.ACCOUNT_TYPES)
+    kind = models.ForeignKey(AccountType, related_name='account_set')
     placeholder = models.BooleanField(default=False)
     objects = AccountManager()
     

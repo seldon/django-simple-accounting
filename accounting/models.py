@@ -229,8 +229,14 @@ class AccountSystem(models.Model):
         from accounting.utils import get_account_from_path
         parent_account = get_account_from_path(path, self.root)
         parent_account.add_child(account)   
-
     
+    @property
+    def accounts(self):
+        """
+        Return the queryset of accounts belonging to this system.
+        """
+        return self.account_set.all()  
+       
     
 class Account(models.Model):
     """
@@ -248,7 +254,7 @@ class Account(models.Model):
     an account can be merely a placeholder (just a container of subaccounts, no transactions).  
     """
     
-    system = models.ForeignKey(AccountSystem, related_name='accounts')
+    system = models.ForeignKey(AccountSystem, related_name='account_set')
     parent = models.ForeignKey('self', null=True, blank=True)
     name = models.CharField(max_length=128)
     kind = models.ForeignKey(AccountType, related_name='account_set')

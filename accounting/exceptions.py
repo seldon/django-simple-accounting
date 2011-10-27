@@ -21,4 +21,10 @@ class MalformedAccountTree(Exception):
     Raised if the tree of accounts associated with an accounting system is malformed.
     """
     pass
+
+class SubjectiveAPIError(Exception):
+    """
+    Raised when a client model can't be declared as *subjective*. 
+    """
+    pass
         

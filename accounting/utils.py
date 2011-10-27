@@ -15,26 +15,9 @@
 # along with ``django-simple-accounting``. If not, see <http://www.gnu.org/licenses/>.
 
 from django.core.exceptions import ValidationError
-from django.contrib.contenttypes.models import ContentType 
 
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
-from accounting.models import subjective_models
-from accounting.models import Subject, Transaction
-
-def get_subject_from_subjective_instance(instance):
-    """
-    Take a model instance ``instance`` and return the unique ``Subject`` instance
-    associated with it.
-    
-    If ``instance`` isn't an instance of a subjective model (as defined by ``settings.SUBJECTIVE_MODELS``),
-    raise ``TypeError``.
-    """
-    instance_ct = ContentType.objects.get_for_model(instance)  
-    if isinstance(instance, subjective_models):
-        subject = Subject.objects.get(content_type=instance_ct, object_id=instance.pk)
-    else:
-        raise TypeError("%s isn't a subjective instance" % instance)
-    return subject
+from accounting.models import Transaction
 
 
 def _validate_account_path(path):

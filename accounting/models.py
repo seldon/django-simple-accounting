@@ -16,11 +16,10 @@
 
 from django.conf import settings 
 from django.db import models
-from django.db.models import get_model
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils.translation import ugettext_lazy as _
-from django.core.exceptions import ValidationError, ImproperlyConfigured
+from django.core.exceptions import ValidationError
 
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
@@ -28,7 +27,7 @@ from django.contrib.contenttypes import generic
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
 from accounting.fields import CurrencyField
 from accounting.managers import AccountManager  
-from accounting.exceptions import MalformedAccountTree
+from accounting.exceptions import MalformedAccountTree, SubjectiveAPIError
 
 from datetime import datetime
 
@@ -69,23 +68,84 @@ class Subject(models.Model):
             return self.account_system
         except AccountSystem.DoesNotExist:
             raise AttributeError(_(u"No accounting system has been setup for this subject %s") % self)
-            
+         
 
-try:
-    subjective_models = [get_model(*model_str.split('.')) for model_str in settings.SUBJECTIVE_MODELS]
-except TypeError:
-    err_msg = "The current 'SUBJECTIVE_MODELS' setting is invalid: %s \n It must contain only labels for existing models"\
-        % settings.SUBJECTIVE_MODELS
-    raise ImproperlyConfigured(err_msg)
+class SubjectDescriptor(object):
+    """
+    A descriptor providing easy access to subjects associated with subjective model instances.
+    """
+    
+    def __get__(self, instance, owner):
+        if instance is None:
+            raise AttributeError(_(u"This attribute can only be accessed from a %s instance") % owner.__name__)
+        instance_ct = ContentType.objects.get_for_model(instance)  
+        subject = Subject.objects.get(content_type=instance_ct, object_id=instance.pk)
+        return subject
+        
+    def __set__(self, instance, value):
+        raise AttributeError(_(u"This is a read-only attribute"))
 
-# when a new instance of a subjective model is created, 
-# add a corresponding ``Subject`` instance pointing to it
-# TODO: deal with subjective models's instances added via fixtures
-@receiver(post_save)
-def subjectify(sender, instance, created, **kwargs):
-    if sender in subjective_models and created:
-        ct = ContentType.objects.get_for_model(sender)
-        Subject.objects.create(content_type=ct, object_id=instance.pk)     
+
+def economic_subject(cls):
+    """
+    This function is meant to be used as a class decorator for augmenting subjective models.
+    
+    Usage
+    =====
+    Say that you have a model ``Foo`` representing an economic subject in a given application domain: 
+    in order to mark it as *subjective*, just use the following syntax:
+    
+        from accounting.models import economic_subject 
+         
+         @economic_subject
+         class Foo(models.Model):
+             # model definition 
+    
+    Then, when you create an instance of model ``Foo``:
+    
+        foo = Foo()
+        foo.save()
+    
+    a ``Subject`` instance pointing to ``foo`` is automatically created, and you can retrieve it 
+    at any time by simply accessing the ``subject`` attribute of ``foo``:
+    
+        subj = foo.subject
+    
+    If ``foo`` is deleted at a later time, then ``subj`` is automatically deleted, too.
+    """
+    
+    # a registry holding subjective_model classes
+    from accounting import subjective_models
+    
+    model = cls
+    # if this model has already been registered, skip further processing 
+    if model in subjective_models:
+        return
+    
+    if 'subject' in model.__dict__.keys():
+        # this model already has an attribute named `subject`, 
+        # so it can't be made *subjective*
+        raise SubjectiveAPIError(_(u"The model %(model)s already has a 'subject' attribute, so it can't be made 'subjective'")\
+                                  % {'model': model})
+    setattr(model, 'subject', SubjectDescriptor()) 
+    
+    ## --------- BEGIN signal registration ----------------- ##
+    # when a new instance of a subjective model is created, 
+    # add a corresponding ``Subject`` instance pointing to it
+    # TODO: deal with subjective models's instances added via fixtures
+    @receiver(post_save)
+    def subjectify(sender, instance, created, **kwargs):
+        if sender in subjective_models and created:
+            ct = ContentType.objects.get_for_model(sender)
+            Subject.objects.create(content_type=ct, object_id=instance.pk)     
+    
+    # clean-up dangling subjects after a subjective model instance is deleted from the DB
+    @receiver(post_delete)
+    def cleanup_stale_subjects(sender, instance, **kwargs):
+        if sender in subjective_models:
+            instance.subject.delete()
+        
+    ## --------- END signal registration ----------------- ##
 
 
 class AccountType(models.Model):
@@ -776,10 +836,10 @@ class AccountingProxy(object):
         
 class AccountingDescriptor(object):
     """
+    A descriptor managing access to accounting-related functionality of a model. 
     """
-    # TODO: provide more detailed error messages
-    # (maybe using ``contribute_to_class()`` Django hook to store 
-    # the attribute name this descriptor was given)
+    # FIXME: provide a mechanism for binding this descriptor to economic models
+    
     def __init__(self, proxy_class=AccountingProxy):
         self.proxy_class = proxy_class
     
@@ -788,12 +848,9 @@ class AccountingDescriptor(object):
         if instance is None:
             raise AttributeError("This attribute can only be accessed from a %s instance" % owner.__name__)
         
-        from accounting.utils import get_subject_from_subjective_instance
-        # retrieve the ``Subject`` instance bound to this model instance
-        subject = get_subject_from_subjective_instance(instance)
         # instantiate the proxy class for accessing accounting functionality for this instance
         # and return it to the caller instance
-        return self.proxy_class(subject)
+        return self.proxy_class(instance.subject)
     
     def __set__(self, instance, value):
         raise AttributeError("This is a read-only attribute")

@@ -236,7 +236,20 @@ class AccountSystem(models.Model):
         Return the queryset of accounts belonging to this system.
         """
         return self.account_set.all()  
-       
+    
+    @property
+    def total_amount(self):
+        """
+        Calculate the total amount of money stored in this accounting system,
+        as an algebraic sum of the balances of all stock-like accounts 
+        belonging to it. 
+        """
+        total_amount = 0
+        for account in self.accounts:
+            # skip flux-like accounts, since they don't actually contain money
+            if account.is_stock:
+                total_amount += account.balance
+        return total_amount    
     
 class Account(models.Model):
     """

@@ -609,8 +609,8 @@ class Transaction(models.Model):
     issuer = models.ForeignKey(Subject, related_name='issued_transactions_set')
     # source flows for this transaction
     source = models.ForeignKey(CashFlow)     
-    # trajectory components
-    component_set = models.ManyToManyField(Trajectory)
+    # trajectory components (a.k.a. *splits*)
+    split_set = models.ManyToManyField(Trajectory)
     # the type of this transaction
     kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES)
     
@@ -632,8 +632,8 @@ class Transaction(models.Model):
         super(Transaction, self).save(*args, **kwargs)
         
     @property
-    def components(self):
-        return self.component_set.all()
+    def splits(self):
+        return self.split_set.all()
     
         
     @property

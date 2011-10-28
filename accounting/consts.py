@@ -14,5 +14,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with ``django-simple-accounting``. If not, see <http://www.gnu.org/licenses/>.
 
-# character(s) used to separate path components in an account tree 
-ACCOUNT_PATH_SEPARATOR = '/'
+from django.conf import settings
+
+# character(s) used to separate components of paths through account trees
+# try to retrieve it from project-level configuration, first; default to '/' if unset
+ACCOUNT_PATH_SEPARATOR = getattr(settings, 'ACCOUNT_PATH_SEPARATOR', '/')

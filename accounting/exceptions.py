@@ -16,13 +16,28 @@
 
 # definitions of custom exceptions go here
 
-class MalformedAccountTree(Exception):
+class AccountingModelException(Exception):
     """
-    Raised if the tree of accounts associated with an accounting system is malformed.
+    A base class for accounting-related exceptions.  
     """
     pass
 
-class SubjectiveAPIError(Exception):
+class MalformedAccountTree(AccountingModelException):
+    """
+    Raised if the tree of accounts associated with an accounting system is malformed.
+    (i.e. non-compliant with the reference accounting model).
+    """
+    pass
+
+class MalformedTransaction(AccountingModelException):
+    """
+    Raised when encountering a malformed transaction 
+    (i.e. non-compliant with the reference accounting model).
+    """
+    pass
+
+
+class SubjectiveAPIError(AccountingModelException):
     """
     Raised when a client model can't be declared as *subjective*. 
     """

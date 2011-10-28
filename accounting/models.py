@@ -581,14 +581,16 @@ class Transaction(models.Model):
     So, a transaction can be defined as a collection of splits 
     sharing the same source account.
     
-    A transaction is said to be: 
-    - *simple* if the source and target accounts belong to the same accounting system
-    - *split* if it comprises more than one trajectory (i.e., splits)
+    A transaction is said to be:
+    - *internal* iff the source and target accounts belong to the same accounting system 
+    - *split* iff it's composed of multiple trajectories (splits)
+    - *simple* iff it's both internal and non-split 
+      
     
     Some facts deriving from these definitions:
-    - simple transactions don't modify the total amount of money contained 
+    - internal transactions don't modify the total amount of money contained 
       within the (single) accounting system they operate on
-    - on the other hand, non-simple transactions transfer money from/to an accounting system
+    - on the other hand, non-internal transactions transfer money from/to an accounting system
       to/from one or more other accounting system(s)
     - the amount of money flowing from/to the source account equals the algebraic sum of those 
       flowing through the splits comprising the transaction (this descends from 
@@ -646,17 +648,27 @@ class Transaction(models.Model):
         return len(self.components) > 1
     
     @property
+    def is_internal(self):
+        """
+        Return ``True if this transaction is an internal one;
+        ``False`` otherwise.
+        """
+        # a transaction is internal iff it's contained within a single accounting system
+        internal = True
+        for trajectory in self.splits:
+            if not trajectory.is_internal:
+                internal = False                
+        return internal
+    
+    @property
     def is_simple(self):
         """
         Return ``True if this transaction is a simple one;
         ``False`` otherwise.
         """
-        # a transaction is simple iff it's contained within a single accounting system
-        simple = True
-        for trajectory in self.components:
-            if not trajectory.is_internal:
-                simple = False                
-        return simple   
+        # a transaction is simple iff it's *both* internal and non-split
+        return self.is_internal and not self.is_split   
+   
 
 class LedgerEntry(models.Model):
     """

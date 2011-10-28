@@ -614,7 +614,7 @@ class Transaction(models.Model):
     # trajectory components (a.k.a. *splits*)
     split_set = models.ManyToManyField(Trajectory)
     # the type of this transaction
-    kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES)
+    kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES, null=True, blank=True)
     
     def __unicode__(self):
         return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}

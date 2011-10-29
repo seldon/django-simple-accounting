@@ -352,7 +352,32 @@ class Account(models.Model):
     def save(self, *args, **kwargs):
         # perform model validation
         self.full_clean()
-        super(Account, self).save(*args, **kwargs)  
+        super(Account, self).save(*args, **kwargs) 
+        
+    
+    @property
+    def base_type(self):
+        """
+        Return the basic type of this account (i.e. INCOME, EXPENSE, ASSET or LIABILITY).
+        """
+        return self.kind.base_type
+     
+        
+    @property
+    def is_stock(self):
+        """
+        Return ``True`` if this account is a stock-like one,
+        ``False`` otherwise.
+        """
+        return self.kind.is_stock
+    
+    @property
+    def is_flux(self):
+        """
+        Return ``True`` if this account is a flux-like one,
+        ``False`` otherwise.
+        """
+        return self.kind.is_flux
          
     @property
     def owner(self):

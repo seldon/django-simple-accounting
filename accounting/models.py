@@ -457,8 +457,8 @@ class CashFlow(models.Model):
     * the account (an ``Account`` instance) from/to which the money flows
     * the amount of the flow itself (i.e., how much money flows)
     
-    The sign of the flow determines its direction: by convention, a positive flow is
-    considered to be incoming, while a negative one is outgoing.  As a consequence,
+    The sign of a flow determines its direction: by convention, a flow is
+    considered to be outgoing if positive, incoming if negative.  As a consequence,
     incoming flows increase the amount of the stock of money represented by the account, 
     while outgoing ones decrease it.    
     """
@@ -479,11 +479,11 @@ class CashFlow(models.Model):
      
     @property
     def is_incoming(self):
-        return self.amount > 0 
+        return self.amount < 0 
     
     @property
     def is_outgoing(self):
-        return self.amount < 0
+        return self.amount > 0
         
 
 class Trajectory(models.Model):    
@@ -557,9 +557,9 @@ class Trajectory(models.Model):
         """
         The amount of money flowing through this trajectory.
         """
-        return self.target.amount
+        return - self.target.amount
     
-            
+          
 class Transaction(models.Model):
     """
     A transaction between accounts.
@@ -592,9 +592,8 @@ class Transaction(models.Model):
       within the (single) accounting system they operate on
     - on the other hand, non-internal transactions transfer money from/to an accounting system
       to/from one or more other accounting system(s)
-    - the amount of money flowing from/to the source account equals the algebraic sum of those 
-      flowing through the splits comprising the transaction (this descends from 
-      the *law of conservation of money*)
+    - the algebraic sum of cash-flows appearing in a transaction (one for each account involved)
+      is zero: this descends from what we could call *law of conservation of money*
     
     Furthermore, a transaction is characterized by some metadata:
     * the date when it happened

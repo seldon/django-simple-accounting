@@ -17,8 +17,9 @@
 from django.core.exceptions import ValidationError
 
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
-from accounting.models import Transaction
-
+from accounting.models import Transaction, CashFlow, Trajectory, LedgerEntry
+from accounting.models.AccountType import INCOME, EXPENSE, ASSET, LIABILITY
+from accounting.exceptions import MalformedTransaction
 
 def _validate_account_path(path):
     if not path.startswith(ACCOUNT_PATH_SEPARATOR):
@@ -67,33 +68,243 @@ def get_transaction_details(transaction):
     return [attr.join(': ') for attr in attribute_list].join('\n')
 
 
-def do_transaction(source, destination, plus, minus, kind, description, issuer, date=None):
+def register_transaction(source, splits, description, issuer, date=None, kind=None):
     """
-    A simple factory function for transactions. 
+    A factory function for registering general transactions between accounts.
     
-    Essentially, it takes provided input arguments and makes a ``Transaction`` instance out of them.
+    When invoked, this function takes care of the following tasks:
+    * create a new ``Transaction`` model instance from the given input arguments
+    * for each account involved in the transaction, add an entry
+      to the corresponding ledger (as a ``LedgerEntry`` instance).   
     
-    If everything went well, return the transaction that was just created; 
-    otherwise, raise a ``TypeError`` (including a descriptive error message).
-    """
+    Arguments
+    =========
+    ``source``
+        A ``CashFlow`` model instance specifying the source account for the transaction
+        and the amount of money flowing from/to it
+        
+    ``splits`` 
+        An iterable of ``Trajectory`` model instances, representing the flow components
+        (a.k.a. *splits*) from which the transaction is made. They must satisfy all the compatibility
+        constraints descending from the reference accounting model (for details, 
+        see ``Transaction`` model's docstring)
+        
+    ``description``
+        A string describing what the transaction stands for
     
-    transaction = Transaction()
-    transaction.source = source
-    transaction.destination = destination
-    transaction.plus_amount = plus
-    transaction.minus_amount = minus
-    transaction.kind = kind
-    transaction.description = description
-    transaction.issuer = issuer
-    transaction.date = date
-           
+    ``issuer``
+        The economic subject (a ``Subject`` model instance) who issued the transaction
+        
+    ``date``
+        A reference date for the transaction (as a ``DateTime`` object); 
+        default to the current date & time 
+        
+    ``kind``  
+        A type specification for the transaction. It's an (optional) domain-specific string;
+        if specified, it must be one of the values listed in ``settings.TRANSACTION_TYPES``
+        
+    
+    Return value
+    ============
+    If input is valid, return the newly created ``Transaction`` model instance; 
+    otherwise, report to the client code whatever error(s) occurred during the processing, 
+    by raising a ``MalformedTransaction`` exception. 
+    """    
     try:
+        transaction = Transaction()
+        
+        transaction.source = source
+        transaction.description = description
+        transaction.issuer = issuer 
+        transaction.date = date
+        transaction.kind = kind
+        
         transaction.save()
-        return transaction
+        # set transaction splits
+        transaction.split_set = splits        
     except ValidationError, e:
-        err_msg = "Can't build a transaction out of these values: %(values)s.  The following error(s) occured: %(errors)s"\
-            % {'values':get_transaction_details(transaction), 'errors':str(e.message_dict)}
-        raise TypeError(err_msg)
-
-
+        err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
+            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+        raise MalformedTransaction(err_msg)
     
+    ## write ledger entries
+    # source account
+    LedgerEntry.objects.create(account=source.account, transaction=transaction, amount=-source.amount)
+    # splits
+    for split in splits:
+        if split.exit_point: 
+            # the sign of a ledger entry depends on the type of account involved 
+            sign = 1 if split.exit_point.base_type == EXPENSE else -1
+            LedgerEntry.objects.create(account=split.exit_point, transaction=transaction, amount=sign*split.amount)
+            # the sign of a ledger entry depends on the type of account involved
+            sign = 1 if split.entry_point.base_type == INCOME else -1
+            LedgerEntry.objects.create(account=split.entry_point, transaction=transaction, amount=sign*split.amount) 
+        # target account
+        # note that, by definition, ``split.amount == - split.target.amount)                
+        LedgerEntry.objects.create(account=split.target.account, transaction=transaction, amount=split.amount)
+    
+    return transaction
+
+def register_internal_transaction(source, targets, description, issuer, date=None, kind=None):
+    """
+    A factory function for registering internal transactions.
+    
+    This is just a convenience version of ``register_transaction``,
+    to be used when dealing with internal transactions. 
+    
+    When invoked, this function takes care of the following tasks:
+    * create a new ``Transaction`` model instance from the given input arguments
+    * for each account involved in the transaction (i.e., ``source`` and ``targets``), 
+      add an entry to the corresponding ledger (as a ``LedgerEntry`` instance).   
+    
+    For details about internal transactions, see ``Transaction`` model's docstring.
+    
+     Arguments
+    =========
+    ``source``
+        A ``CashFlow`` model instance specifying the source account for the transaction
+        and the amount of money flowing from/to it
+        
+    ``targets`` 
+        An iterable of ``CashFlow`` model instances, representing the flow components
+        (a.k.a. splits) from which the transaction is made.  
+        Since we are dealing with an internal transaction, a split is fully defined 
+        by the target account and the amount of money flowing to/from it 
+        (so, a ``CashFlow`` rather than a ``Trajectory`` instance).   
+        
+    ``description``
+        A string describing what the transaction stands for
+    
+    ``issuer``
+        The economic subject (a ``Subject`` model instance) who issued the transaction
+        
+    ``date``
+        A reference date for the transaction (as a ``DateTime`` object); 
+        default to the current date & time 
+        
+    ``kind``  
+        A type specification for the transaction. It's an (optional) domain-specific string;
+        if specified, it must be one of the values listed in ``settings.TRANSACTION_TYPES``
+        
+    
+    Return value
+    ============
+    If input is valid, return the newly created ``Transaction`` model instance; 
+    otherwise, report to the client code whatever error(s) occurred during the processing, 
+    by raising a ``MalformedTransaction`` exception.  
+    """
+    try:
+        transaction = Transaction()
+        
+        transaction.source = source
+        transaction.description = description
+        transaction.issuer = issuer 
+        transaction.date = date
+        transaction.kind = kind
+        
+        transaction.save()
+
+        # construct transaction splits from input arguments
+        splits = []
+        for target in targets:
+            # entry- & exit- points are missing, because this is an internal transaction
+            split = Trajectory.objects.create(target=target) 
+            splits.append(split)
+        
+        # set transaction splits
+        transaction.split_set = splits          
+    except ValidationError, e:
+        err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
+            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+        raise MalformedTransaction(err_msg)
+    
+    ## write ledger entries
+    # source account
+    LedgerEntry.objects.create(account=source.account, transaction=transaction, amount=-source.amount)
+    # target accounts
+    for target in targets:
+        LedgerEntry.objects.create(account=target.account, transaction=transaction, amount=-target.amount)
+    
+    return transaction
+
+
+def register_simple_transaction(source_account, target_account, amount, description, issuer, date=None, kind=None):
+    """
+    A factory function for registering simple transactions.
+    
+    This is just a convenience version of ``register_transaction``,
+    to be used when dealing with simple transactions. 
+    
+    When invoked, this function takes care of the following tasks:
+    * create a new ``Transaction`` model instance from the given input arguments
+    * for each account involved in the transaction (i.e., ``source`` and ``target``), 
+      add an entry to the corresponding ledger (as a ``LedgerEntry`` instance).   
+    
+    For details about simple transactions, see ``Transaction`` model's docstring.
+    
+    Arguments
+    =========
+    ``source_account``
+        the source account for the transaction (an ``Account`` model instance)
+        
+    ``target_account`` 
+        the target account for the transaction (an ``Account`` model instance)
+        
+    ``amount`` 
+        the amount of money flowing between source and target accounts (as a signed integer); 
+        its sign determines the flows's direction with respect to the source account 
+        (i.e., positive -> outgoing, negative -> incoming) 
+    
+    ``description``
+        A string describing what the transaction stands for
+    
+    ``issuer``
+        The economic subject (a ``Subject`` model instance) who issued the transaction
+        
+    ``date``
+        A reference date for the transaction (as a ``DateTime`` object); 
+        default to the current date & time 
+        
+    ``kind``  
+        A type specification for the transaction. It's an (optional) domain-specific string;
+        if specified, it must be one of the values listed in ``settings.TRANSACTION_TYPES``
+        
+    
+    Return value
+    ============
+    If input is valid, return the newly created ``Transaction`` model instance; 
+    otherwise, report to the client code whatever error(s) occurred during the processing, 
+    by raising a ``MalformedTransaction`` exception.  
+    """
+    try:
+        transaction = Transaction()
+        
+        # source flow
+        source = CashFlow.objects.create(account=source_account, amount=amount)
+        transaction.source = source
+        transaction.description = description
+        transaction.issuer = issuer 
+        transaction.date = date
+        transaction.kind = kind
+        
+        transaction.save()
+
+        # construct the (single) transaction split from input arguments        
+        # entry- & exit- points are missing, because this is an internal transaction
+        # target flow
+        target = CashFlow.objects.create(account=target_account, amount=-amount)
+        split = Trajectory.objects.create(target=target)  
+        # add this single split to the transaction 
+        transaction.split_set = [split]           
+    except ValidationError, e:
+        err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
+            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+        raise MalformedTransaction(err_msg)
+    
+    ## write ledger entries
+    # source account
+    LedgerEntry.objects.create(account=source_account, transaction=transaction, amount=-amount)
+    # target account
+    LedgerEntry.objects.create(account=target_account, transaction=transaction, amount=amount)
+    
+    return transaction

@@ -200,7 +200,7 @@ class AccountType(models.Model):
     @property
     def is_stock(self):
         """
-        Return ``True`` if this account is a stock-like one,
+        Return ``True`` if this account type is a stock-like one,
         ``False`` otherwise.
         """
         return self.base_type in (AccountType.ASSET, AccountType.LIABILITY)
@@ -208,7 +208,7 @@ class AccountType(models.Model):
     @property
     def is_flux(self):
         """
-        Return ``True`` if this account is a flux-like one,
+        Return ``True`` if this account type is a flux-like one,
         ``False`` otherwise.
         """
         return self.base_type in (AccountType.INCOME, AccountType.EXPENSE)

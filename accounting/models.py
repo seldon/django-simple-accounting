@@ -292,6 +292,19 @@ class AccountSystem(models.Model):
         parent_account = get_account_from_path(path, self.root)
         parent_account.add_child(account)   
     
+    def add_account(self, parent, name, kind, placeholder=False):
+        """
+        Add an account to this accounting system, based on given specifications. 
+        """
+        Account.objects.create(system=self, parent=parent, name=name, kind=kind, placeholder=placeholder)
+    
+    def add_root_account(self):
+        """
+        Create a root account for this system.
+        """
+        root_type = AccountType.objects.get(name='ROOT')
+        self.add_account(parent=None, name='', kind=root_type, placeholder=True)
+        
     @property
     def accounts(self):
         """

@@ -68,7 +68,20 @@ class Subject(models.Model):
             return self.account_system
         except AccountSystem.DoesNotExist:
             raise AttributeError(_(u"No accounting system has been setup for this subject %s") % self)
-         
+        
+    def init_accounting_system(self):
+        """
+        Perform routine tasks required to initialize the accounting system for a subject. 
+        """
+        # create a new accounting system bound to the subject
+        system = AccountSystem.objects.create(owner=self)
+        # create a root account
+        system.add_root_account()
+        # create root accounts for incomes and expenses
+        income_type = AccountType.objects.get(name='INCOME')
+        system.add_account(parent=system.root, name='incomes', kind=income_type)
+        expense_type = AccountType.objects.get(name='EXPENSE')
+        system.add_account(parent=system.root, name='expenses', kind=expense_type)
 
 class SubjectDescriptor(object):
     """

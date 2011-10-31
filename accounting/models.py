@@ -298,11 +298,23 @@ class AccountSystem(models.Model):
         parent_account = get_account_from_path(path, self.root)
         parent_account.add_child(account)   
     
-    def add_account(self, parent, name, kind, placeholder=False):
+    def add_account(self, parent_path, name, kind, placeholder=False):
         """
-        Add an account to this accounting system, based on given specifications. 
+        Add an account to this accounting system, based on given specifications.
+        
+        Arguments
+        =========
+        ``parent_path``
+            A string describing the absolute path to follow - within this accounting system - 
+            for reaching the parent of the account to be added  
+        ``name``
+            a name for the account to be added
+        ``kind``
+            the type of the account to be added (as an ``AccountType`` model instance)
+        ``placeholder``
+            A boolean flag specifying if this account is to be considered a placeholder
         """
-        Account.objects.create(system=self, parent=parent, name=name, kind=kind, placeholder=placeholder)
+        Account.objects.create(system=self, parent=self[parent_path], name=name, kind=kind, placeholder=placeholder)
     
     def add_root_account(self):
         """

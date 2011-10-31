@@ -173,9 +173,10 @@ class AccountType(models.Model):
     (e.g. *bank account*, *cash*, *credit card*, etc.) with domain-specific semantics.
     """
     
-    (INCOME, EXPENSE, ASSET, LIABILITY) = range(0,4) 
+    (ROOT, INCOME, EXPENSE, ASSET, LIABILITY) = range(0,5) 
 
     BASE_ACCOUNT_TYPES = (
+        (ROOT, _('Root')), # needed for root accounts
         (INCOME, _('Incomes')),
         (EXPENSE, _('Expenses')),
         (ASSET, _('Assets')),
@@ -222,6 +223,7 @@ class AccountType(models.Model):
    
 
 ## Setup basic account types
+AccountType.objects.create(name='ROOT', base_type=AccountType.ROOT)
 AccountType.objects.create(name='INCOME', base_type=AccountType.INCOME)
 AccountType.objects.create(name='EXPENSE', base_type=AccountType.EXPENSE)
 AccountType.objects.create(name='ASSET', base_type=AccountType.ASSET)

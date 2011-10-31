@@ -3,6 +3,7 @@ from django.db import models
 from accounting.fields import CurrencyField
 from accounting.models import AccountType, Account
 from accounting.models import AccountingProxy, economic_subject
+from accounting import types
 
 ## People
 @economic_subject
@@ -18,8 +19,7 @@ class Person(models.Model):
         self.subject.init_accounting_system()
         system = self.accounting_system
         # create a generic asset-type account (a sort of "virtual wallet")
-        asset_type = AccountType.objects.get(name='ASSET')
-        system.add_account(parent=system.root, name='wallet', kind=asset_type)  
+        system.add_account(parent=system.root, name='wallet', kind=types.asset)  
     
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -36,20 +36,17 @@ class GAS(models.Model):
     def setup_accounting(self):
         self.subject.init_accounting_system()
         system = self.accounting_system
-        asset_type = AccountType.objects.get(name='ASSET')
-        income_type = AccountType.objects.get(name='INCOME')
-        expense_type = AccountType.objects.get(name='EXPENSE')
         ## setup a base account hierarchy
         # GAS's cash       
-        system.add_account(parent=system.root, name='cash', kind=asset_type) 
+        system.add_account(parent=system.root, name='cash', kind=types.asset) 
         # root for GAS members' accounts 
-        system.add_account(parent=system.root, name='members', kind=asset_type, placeholder=True)
+        system.add_account(parent=system.root, name='members', kind=types.asset, placeholder=True)
         # a placeholder for organizing transactions representing payments to suppliers
-        system.add_account(parent=system['/expenses'], name='suppliers', kind=expense_type, placeholder=True)
+        system.add_account(parent=system['/expenses'], name='suppliers', kind=types.expense, placeholder=True)
         # recharges made by GAS members to their own account
-        system.add_account(parent=system['/incomes'], name='recharges', kind=income_type)
+        system.add_account(parent=system['/incomes'], name='recharges', kind=types.income)
         # membership fees
-        system.add_account(parent=system['/incomes'], name='fees', kind=income_type)
+        system.add_account(parent=system['/incomes'], name='fees', kind=types.income)
         
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -66,22 +63,20 @@ class GASMember(models.Model):
         person_system = self.person.subject.accounting_system
         gas_system = self.gas.subject.accounting_system
         
-        asset_type = AccountType.objects.get(name='ASSET')
-        expense_type = AccountType.objects.get(name='EXPENSE')
         ## account creation
         ## Person-side
         try:
             base_account = person_system['/expenses/gas'] 
         except Account.DoesNotExist:
-            person_system.add_account(parent=person_system['/expenses'], name='gas', kind=expense_type, placeholder=True)
+            person_system.add_account(parent=person_system['/expenses'], name='gas', kind=types.expense, placeholder=True)
         # placeholder for payments made to the GAS
-        person_system.add_account(parent=base_account, name=str(self.gas.name), kind=expense_type, placeholder=True)
+        person_system.add_account(parent=base_account, name=str(self.gas.name), kind=types.expense, placeholder=True)
         # recharges
-        person_system.add_account(parent=person_system['/expenses/' + str(self.gas.name)], name='recharges', kind=expense_type)
+        person_system.add_account(parent=person_system['/expenses/' + str(self.gas.name)], name='recharges', kind=types.expense)
         # membership fees
-        person_system.add_account(parent=person_system['/expenses/' + str(self.gas.name)], name='fees', kind=expense_type)
+        person_system.add_account(parent=person_system['/expenses/' + str(self.gas.name)], name='fees', kind=types.expense)
         ## GAS-side   
-        gas_system.add_account(parent=gas_system['/members'], name=str(self.person.full_name), kind=asset_type)
+        gas_system.add_account(parent=gas_system['/members'], name=str(self.person.full_name), kind=types.asset)
     
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -97,13 +92,11 @@ class Supplier(models.Model):
     def setup_accounting(self):
         self.subject.init_accounting_system()
         system = self.accounting_system
-        asset_type = AccountType.objects.get(name='ASSET')
-        income_type = AccountType.objects.get(name='INCOME')
         ## setup a base account hierarchy   
         # a generic asset-type account (a sort of "virtual wallet")        
-        system.add_account(parent=system.root, name='wallet', kind=asset_type)  
+        system.add_account(parent=system.root, name='wallet', kind=types.asset)  
         # a placeholder for organizing transactions representing GAS payments
-        system.add_account(parent=system['/incomes'], name='gas', kind=income_type, placeholder=True)
+        system.add_account(parent=system['/incomes'], name='gas', kind=types.income, placeholder=True)
         
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -128,14 +121,12 @@ class GASSupplierSolidalPact(models.Model):
     
     def setup_accounting(self):
         ## create accounts for logging GAS <-> Supplier transactions
-        income_type = AccountType.objects.get(name='INCOME')
-        expense_type = AccountType.objects.get(name='EXPENSE')
         # GAS-side
         gas_system = self.gas.subject.accounting_system
-        gas_system.add_account(parent=gas_system['/expenses/suppliers'], name=str(self.supplier.name), kind=expense_type)
+        gas_system.add_account(parent=gas_system['/expenses/suppliers'], name=str(self.supplier.name), kind=types.expense)
         # Supplier-side
         supplier_system = self.supplier.subject.accounting_system
-        supplier_system.add_account(parent=supplier_system['/incomes/gas'], name=str(self.gas.name), kind=income_type)
+        supplier_system.add_account(parent=supplier_system['/incomes/gas'], name=str(self.gas.name), kind=types.income)
     
     def save(self, *args, **kwargs):
         # run only at instance creation-time 

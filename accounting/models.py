@@ -73,15 +73,14 @@ class Subject(models.Model):
         """
         Perform routine tasks required to initialize the accounting system for a subject. 
         """
+        from accounting import types 
         # create a new accounting system bound to the subject
         system = AccountSystem.objects.create(owner=self)
         # create a root account
         system.add_root_account()
         # create root accounts for incomes and expenses
-        income_type = AccountType.objects.get(name='INCOME')
-        system.add_account(parent=system.root, name='incomes', kind=income_type)
-        expense_type = AccountType.objects.get(name='EXPENSE')
-        system.add_account(parent=system.root, name='expenses', kind=expense_type)
+        system.add_account(parent=system.root, name='incomes', kind=types.income)
+        system.add_account(parent=system.root, name='expenses', kind=types.expense)
 
 class SubjectDescriptor(object):
     """
@@ -235,12 +234,6 @@ class AccountType(models.Model):
         return self.account_set.all()
    
 
-## Setup basic account types
-AccountType.objects.create(name='ROOT', base_type=AccountType.ROOT)
-AccountType.objects.create(name='INCOME', base_type=AccountType.INCOME)
-AccountType.objects.create(name='EXPENSE', base_type=AccountType.EXPENSE)
-AccountType.objects.create(name='ASSET', base_type=AccountType.ASSET)
-AccountType.objects.create(name='LIABILITY', base_type=AccountType.LIABILITY)
 
     
 class AccountSystem(models.Model):
@@ -315,8 +308,8 @@ class AccountSystem(models.Model):
         """
         Create a root account for this system.
         """
-        root_type = AccountType.objects.get(name='ROOT')
-        self.add_account(parent=None, name='', kind=root_type, placeholder=True)
+        from accounting import types
+        self.add_account(parent=None, name='', kind=types.root, placeholder=True)
         
     @property
     def accounts(self):

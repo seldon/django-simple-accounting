@@ -172,19 +172,37 @@ class GASMemberOrder(models.Model):
 
 class PersonAccountingProxy(AccountingProxy):
     """
-    WRITEME
+    This class is meant to be the place where implementing the accounting API 
+    for ``Person``-like economic subjects.
+    
+    Since it's a subclass of  ``AccountingProxy``, it inherits from its parent 
+    all the methods and attributes comprising the *generic* accounting API;
+    here, you can add whatever logic is needed to augment that generic API,
+    tailoring it to the specific needs of the ``Person``' model.    
     """
     pass
 
 class GasAccountingProxy(AccountingProxy):
     """
-    WRITEME
+    This class is meant to be the place where implementing the accounting API 
+    for ``GAS``-like economic subjects.
+    
+    Since it's a subclass of  ``AccountingProxy``, it inherits from its parent 
+    all the methods and attributes comprising the *generic* accounting API;
+    here, you can add whatever logic is needed to augment that generic API,
+    tailoring it to the specific needs of the ``GAS``' model.    
     """
     pass
 
 class SupplierAccountingProxy(AccountingProxy):
     """
-    WRITEME
+    This class is meant to be the place where implementing the accounting API 
+    for ``Supplier``-like economic subjects.
+    
+    Since it's a subclass of  ``AccountingProxy``, it inherits from its parent 
+    all the methods and attributes comprising the *generic* accounting API;
+    here, you can add whatever logic is needed to augment that generic API,
+    tailoring it to the specific needs of the ``Supplier``' model.    
     """
     pass
 

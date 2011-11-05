@@ -422,17 +422,12 @@ class Account(models.Model):
     @property
     def balance(self):
         """
-        The balance of this account (as a signed Decimal number).
+        The money balance of this account (as a signed Decimal number).
         """
         # FIXME: implement caching !
-        incoming_transactions = self.incoming_transaction_set.all()
-        outgoing_transactions = self.outgoing_transaction_set.all()
-        
         balance = 0
-        for transaction in incoming_transactions:
-            balance += transaction.net_amount 
-        for transaction in outgoing_transactions:
-            balance -= transaction.net_amount
+        for entry in self.ledger_entries:
+            balance += entry.amount
         return balance
     
     @property

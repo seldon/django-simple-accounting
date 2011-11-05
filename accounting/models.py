@@ -668,6 +668,8 @@ class Transaction(models.Model):
     split_set = models.ManyToManyField(Trajectory)
     # the type of this transaction
     kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES, null=True, blank=True)
+    # wheter this transaction has been confirmed by every involved subject
+    is_confirmed = models.BooleanField(default=False)
     
     def __unicode__(self):
         return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}

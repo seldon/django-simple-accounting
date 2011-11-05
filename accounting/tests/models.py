@@ -32,6 +32,7 @@ class Person(models.Model):
 @economic_subject
 class GAS(models.Model):
     name = models.CharField(max_length=128, unique=True)
+    membership_fee = CurrencyField(null=True, blank=True)
 
     def setup_accounting(self):
         self.subject.init_accounting_system()
@@ -180,7 +181,27 @@ class PersonAccountingProxy(AccountingProxy):
     here, you can add whatever logic is needed to augment that generic API,
     tailoring it to the specific needs of the ``Person``' model.    
     """
-    pass
+    
+    def pay_membership_fee(self, gas):
+        """
+        Pay the annual membership fee for a GAS this person is member of.
+        
+        Fee amount is determined by the ``gas.membership_fee`` attribute.
+        
+        If this person is not a member of GAS ``gas``, 
+        a ``MalformedTransaction`` exception is raised.
+        """
+        pass 
+    
+    def do_recharge(self, gas, amount):
+        """
+        Do a recharge of amount ``amount`` to the corresponding member account 
+        in the GAS ``gas``. 
+        
+        If this person is not a member of GAS ``gas``, 
+        a ``MalformedTransaction`` exception is raised.
+        """
+        pass
 
 class GasAccountingProxy(AccountingProxy):
     """
@@ -192,7 +213,25 @@ class GasAccountingProxy(AccountingProxy):
     here, you can add whatever logic is needed to augment that generic API,
     tailoring it to the specific needs of the ``GAS``' model.    
     """
-    pass
+    
+    def pay_supplier(self, pact, amount):
+        """
+        Transfer a given (positive) amount ``amount`` of money from the GAS's cash
+        to a supplier for which a solidal pact is currently active.
+        
+        If ``amount`` is negative, a ``MalformedTransaction`` exception is raised
+        (supplier-to-GAS money transfers should be treated as "refunds")   
+        """
+        pass
+    
+    def withdraw_from_member_account(self, member, amount):
+        """
+        Withdraw a given amount ``amount`` of money from the account of a member
+        of this GAS and bestow it to the GAS's cash.
+        
+        If this operation would make that member's account negative, raise a warning.
+        """
+        pass
 
 class SupplierAccountingProxy(AccountingProxy):
     """
@@ -204,5 +243,19 @@ class SupplierAccountingProxy(AccountingProxy):
     here, you can add whatever logic is needed to augment that generic API,
     tailoring it to the specific needs of the ``Supplier``' model.    
     """
-    pass
-
+    
+    def confirme_invoice_payment(self, invoice):
+        """
+        Confirm that an invoice issued by this supplier has been actually payed.
+        """
+        pass
+    
+    def refund_gas(self, gas, amount):
+        """
+        Refund a given ``amount`` of money to a GAS for which a solidal pact 
+        is currently active.
+        
+        If GAS ``gas`` doesn't have an active solidal pact with this supplier, 
+        or if ``amount`` is negative, raise a ``MalformedTransaction`` exception.
+        """
+        pass

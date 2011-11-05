@@ -844,7 +844,7 @@ class AccountingProxy(object):
     
     def __init__(self, subject):
         self.subject = subject
-        self.accounts = subject.accounting_system
+        self.system = subject.accounting_system
     
     @property    
     def account(self):
@@ -934,7 +934,7 @@ class AccountingDescriptor(object):
     For example, the accounting system owned by that (subjective) model instance 
     can be retrieved as follows:
         
-        foo.accounting.accounts
+        foo.accounting.system
     
     Note that you can use a different name than ``accounting`` as the entry point to
     the accounting API (as long as it doesn't clash with an existing attribute of the

@@ -424,11 +424,12 @@ class Account(models.Model):
         """
         The money balance of this account (as a signed Decimal number).
         """
-        # FIXME: implement caching !
-        balance = 0
-        for entry in self.ledger_entries:
-            balance += entry.amount
-        return balance
+        if not self._balance:
+            balance = 0
+            for entry in self.ledger_entries:
+                balance += entry.amount
+            self._balance = balance
+        return self._balance
     
     @property
     def path(self):

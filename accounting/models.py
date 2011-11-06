@@ -609,12 +609,27 @@ class Trajectory(models.Model):
     
     # model-level custom validation goes here
     def clean(self):
-        # TODO: if ``entry point`` is null, so must be ``exit_point``
-        # TODO: ``entry_point`` must be a flux-like account
-        # TODO: ``exit_point`` must be a flux-like account
-        # TODO: ``target`` must be a stock-like account
-        # TODO: ``exit_point`` must belong to the same accounting system as ``target``
-        pass
+        ## if ``exit point`` is null, so must be ``entry_point``
+        if not self.exit_point:
+            try:
+                assert not self.entry_point
+            except AssertionError:
+                raise ValidationError(_(u"If no exit-point is set for a split, no entry-point must be set, either."))      
+        ## ``entry_point`` must be a flux-like account
+        if not self.entry_point.is_flux:
+                raise ValidationError(_(u"Entry-points must be flux-like accounts"))
+        ## ``exit_point`` must be a flux-like account
+        if not self.exit_point.is_flux:
+                raise ValidationError(_(u"Exit-points must be flux-like accounts"))
+        ## ``target`` must be a stock-like account
+        if not self.target.account.is_stock:
+                raise ValidationError(_(u"Target must be a stock-like account"))
+        ## ``entry_point`` must belongs to the same accounting system as ``target`` 
+        if self.entry_point:
+            try:
+                assert self.entry_point.system == self.target.system
+            except AssertionError:
+                raise ValidationError(_(u"Entry-point and target accounts must belong to the same accounting system"))            
         
     def save(self, *args, **kwargs):
         # perform model validation

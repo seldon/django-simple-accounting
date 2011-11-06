@@ -20,7 +20,7 @@ class Person(models.Model):
         self.subject.init_accounting_system()
         system = self.accounting_system
         # create a generic asset-type account (a sort of "virtual wallet")
-        system.add_account(parent=system.root, name='wallet', kind=types.asset)  
+        system.add_account(parent_path='/', name='wallet', kind=types.asset)  
     
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -40,9 +40,9 @@ class GAS(models.Model):
         system = self.accounting_system
         ## setup a base account hierarchy
         # GAS's cash       
-        system.add_account(parent=system.root, name='cash', kind=types.asset) 
+        system.add_account(parent_path='/', name='cash', kind=types.asset) 
         # root for GAS members' accounts 
-        system.add_account(parent=system.root, name='members', kind=types.asset, is_placeholder=True)
+        system.add_account(parent_path='/', name='members', kind=types.asset, is_placeholder=True)
         # a placeholder for organizing transactions representing payments to suppliers
         system.add_account(parent_path='/expenses', name='suppliers', kind=types.expense, is_placeholder=True)
         # recharges made by GAS members to their own account
@@ -97,7 +97,7 @@ class Supplier(models.Model):
         system = self.accounting_system
         ## setup a base account hierarchy   
         # a generic asset-type account (a sort of "virtual wallet")        
-        system.add_account(parent=system.root, name='wallet', kind=types.asset)  
+        system.add_account(parent_path='/', name='wallet', kind=types.asset)  
         # a placeholder for organizing transactions representing GAS payments
         system.add_account(parent_path='/incomes', name='gas', kind=types.income, is_placeholder=True)
         

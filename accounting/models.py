@@ -549,8 +549,9 @@ class CashFlow(models.Model):
     
     # model-level custom validation goes here
     def clean(self):
-        # TODO: check that ``account`` is stock-like
-        pass
+        ## check that ``account`` is stock-like
+        if not self.is_stock:
+            raise ValidationError(_(u"Only stock-like accounts may represent cash-flows."))     
     
     def save(self, *args, **kwargs):
         # perform model validation

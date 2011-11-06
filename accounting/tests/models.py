@@ -239,8 +239,16 @@ class GasAccountingProxy(AccountingProxy):
         If ``amount`` is negative, a ``MalformedTransaction`` exception is raised
         (supplier-to-GAS money transfers should be treated as "refunds")   
         """
-        pass
-    
+        gas = self.subject.instance
+        supplier = pact.supplier
+        source_account = self.system['/cash']
+        exit_point = self.system['/expenses/suppliers/' + str(supplier.name)]
+        entry_point =  supplier.system['/incomes/gas' + str(gas.name)]
+        target_account = supplier.system['/wallet']
+        description = "Payment from GAS %(gas)s to supplier %(supplier)s" % {'gas': gas, 'supplier': supplier,}
+        issuer = gas 
+        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='PAYMENT')
+        
     def withdraw_from_member_account(self, member, amount):
         """
         Withdraw a given amount ``amount`` of money from the account of a member
@@ -248,7 +256,12 @@ class GasAccountingProxy(AccountingProxy):
         
         If this operation would make that member's account negative, raise a warning.
         """
-        pass
+        gas = self.subject.instance
+        source_account = self.system['/members/' + str(member.person.full_name)]
+        target_account = self.system['/cash']
+        description = "Withdrawal from member %(member)s account by GAS %(gas)s" % {'gas': gas, 'member': member,}
+        issuer = gas 
+        register_simple_transaction(source_account, target_account, amount, description, issuer, date=None, kind='GAS_WITHDRAWAL')
 
 class SupplierAccountingProxy(AccountingProxy):
     """

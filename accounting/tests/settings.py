@@ -58,4 +58,7 @@ TRANSACTION_TYPES = (
                      ('INVOICE_COLLECTION', "Collection of an invoice"),
                      ('RECHARGE', "Recharge made by a GAS member"),
                      ('MEMBERSHIP_FEE', "Payment of a membership fee by a GAS member"),
+                     ('PAYMENT', "A generic payment"),
+                     ('GAS_WITHDRAWAL', "A withdrawal from a member's account made by a GAS"),
+                     ('REFUND', "A money refund made by a supplier to a GAS"),
 )

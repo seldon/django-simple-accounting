@@ -183,7 +183,7 @@ class PersonAccountingProxy(AccountingProxy):
     tailoring it to the specific needs of the ``Person``' model.    
     """
     
-    def pay_membership_fee(self, gas):
+    def pay_membership_fee(self, gas, year):
         """
         Pay the annual membership fee for a GAS this person is member of.
         

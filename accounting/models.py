@@ -298,7 +298,7 @@ class AccountSystem(models.Model):
         parent_account = get_account_from_path(path, self.root)
         parent_account.add_child(account)   
     
-    def add_account(self, parent_path, name, kind, placeholder=False):
+    def add_account(self, parent_path, name, kind, is_placeholder=False):
         """
         Add an account to this accounting system, based on given specifications.
         
@@ -311,17 +311,17 @@ class AccountSystem(models.Model):
             a name for the account to be added
         ``kind``
             the type of the account to be added (as an ``AccountType`` model instance)
-        ``placeholder``
+        ``is_placeholder``
             A boolean flag specifying if this account is to be considered a placeholder
         """
-        Account.objects.create(system=self, parent=self[parent_path], name=name, kind=kind, placeholder=placeholder)
+        Account.objects.create(system=self, parent=self[parent_path], name=name, kind=kind, is_placeholder=is_placeholder)
     
     def add_root_account(self):
         """
         Create a root account for this system.
         """
         from accounting import types
-        self.add_account(parent=None, name='', kind=types.root, placeholder=True)
+        self.add_account(parent=None, name='', kind=types.root, is_placeholder=True)
         
     @property
     def accounts(self):
@@ -364,7 +364,7 @@ class Account(models.Model):
     parent = models.ForeignKey('self', null=True, blank=True)
     name = models.CharField(max_length=128)
     kind = models.ForeignKey(AccountType, related_name='account_set')
-    placeholder = models.BooleanField(default=False)
+    is_placeholder = models.BooleanField(default=False)
     objects = AccountManager()
     
     def __unicode__(self):

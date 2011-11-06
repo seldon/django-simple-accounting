@@ -41,9 +41,9 @@ class GAS(models.Model):
         # GAS's cash       
         system.add_account(parent=system.root, name='cash', kind=types.asset) 
         # root for GAS members' accounts 
-        system.add_account(parent=system.root, name='members', kind=types.asset, placeholder=True)
+        system.add_account(parent=system.root, name='members', kind=types.asset, is_placeholder=True)
         # a placeholder for organizing transactions representing payments to suppliers
-        system.add_account(parent_path='/expenses', name='suppliers', kind=types.expense, placeholder=True)
+        system.add_account(parent_path='/expenses', name='suppliers', kind=types.expense, is_placeholder=True)
         # recharges made by GAS members to their own account
         system.add_account(parent_path='/incomes', name='recharges', kind=types.income)
         # membership fees
@@ -69,9 +69,9 @@ class GASMember(models.Model):
         try:
             base_account = person_system['/expenses/gas'] 
         except Account.DoesNotExist:
-            person_system.add_account(parent_path='/expenses', name='gas', kind=types.expense, placeholder=True)
+            person_system.add_account(parent_path='/expenses', name='gas', kind=types.expense, is_placeholder=True)
         # placeholder for payments made to the GAS
-        person_system.add_account(parent=base_account, name=str(self.gas.name), kind=types.expense, placeholder=True)
+        person_system.add_account(parent=base_account, name=str(self.gas.name), kind=types.expense, is_placeholder=True)
         # recharges
         person_system.add_account(parent_path='/expenses/' + str(self.gas.name), name='recharges', kind=types.expense)
         # membership fees
@@ -97,7 +97,7 @@ class Supplier(models.Model):
         # a generic asset-type account (a sort of "virtual wallet")        
         system.add_account(parent=system.root, name='wallet', kind=types.asset)  
         # a placeholder for organizing transactions representing GAS payments
-        system.add_account(parent_path='/incomes', name='gas', kind=types.income, placeholder=True)
+        system.add_account(parent_path='/incomes', name='gas', kind=types.income, is_placeholder=True)
         
     def save(self, *args, **kwargs):
         # run only at instance creation-time 

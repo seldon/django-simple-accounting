@@ -68,9 +68,9 @@ def get_transaction_details(transaction):
     return [attr.join(': ') for attr in attribute_list].join('\n')
 
 
-def register_transaction(source, splits, description, issuer, date=None, kind=None):
+def register_split_transaction(source, splits, description, issuer, date=None, kind=None):
     """
-    A factory function for registering general transactions between accounts.
+    A factory function for registering general (split) transactions between accounts.
     
     When invoked, this function takes care of the following tasks:
     * create a new ``Transaction`` model instance from the given input arguments

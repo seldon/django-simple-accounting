@@ -278,7 +278,7 @@ class SupplierAccountingProxy(AccountingProxy):
         """
         Confirm that an invoice issued by this supplier has been actually payed.
         """
-        pass
+        self.set_invoice_payed(invoice)
     
     def refund_gas(self, gas, amount):
         """
@@ -288,4 +288,12 @@ class SupplierAccountingProxy(AccountingProxy):
         If GAS ``gas`` doesn't have an active solidal pact with this supplier, 
         or if ``amount`` is negative, raise a ``MalformedTransaction`` exception.
         """
-        pass
+        supplier = self.subject.instance
+        source_account = self.system['/wallet']
+        exit_point = self.system['/incomes/gas/' + str(gas.name)]
+        entry_point = gas.system['/expenses/suppliers/' + str(supplier.name)] 
+        target_account = gas.system['/cash']
+        description = "Refund from supplier %(supplier)s to GAS %(gas)s" % {'gas': gas, 'supplier': supplier,}
+        issuer = supplier 
+        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='REFUND')
+        

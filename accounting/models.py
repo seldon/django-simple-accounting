@@ -565,7 +565,10 @@ class CashFlow(models.Model):
     @property
     def is_outgoing(self):
         return self.amount > 0
-        
+    
+    @property
+    def system(self):
+        return self.account.system
 
 class Trajectory(models.Model):    
     """

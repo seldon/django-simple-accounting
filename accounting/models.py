@@ -721,12 +721,39 @@ class Transaction(models.Model):
     
     # model-level custom validation goes here
     def clean(self):
-        # TODO: check that the *law of conservation of money* is satisfied
-        # TODO: check that exit points belong to the same accounting system 
-        # TODO: as the source account
-        # TODO: for internal trajectories, check that target account belongs 
-        # TODO: to the same accounting system as the source account
-        pass
+        ## check that the *law of conservation of money* is satisfied
+        flows = [self.source]
+        for split in self.splits:
+            flows.append(split.target)
+        # the algebraic sum of flows must be 0
+        try:
+            assert sum([flow.amount for flow in flows]) == 0
+        except AssertionError:
+            raise ValidationError(_(u"The law of conservation of money is not satisfied for this transaction"))    
+        ## check that exit-points belong to the same accounting system as the source account
+        for split in self.splits:
+            try:
+                assert split.exit_point.system == self.source.system
+            except AssertionError:
+                raise ValidationError(_(u"Exit-points must belong to the same accounting system as the source account"))        
+        ## for internal trajectories, check that target accounts belong 
+        ## to the same accounting system as the source account
+        if self.is_internal:
+            for split in self.splits:
+                try:
+                    assert split.target.system == self.source.system
+                except AssertionError:
+                    msg = _(u"For internal trajectories, target accounts must belong to the same accounting system as the source account")
+                    raise ValidationError(msg)
+        ## check that no account involved in this transaction is a placeholder one
+        involved_accounts = [self.source.account]
+        for split in self.splits:
+            involved_accounts += [split.exit_point, split.entry_point, split.target.account]
+        for account in involved_accounts:
+            try:
+                assert not account.placeholder 
+            except AssertionError:
+                raise ValidationError(_(u"Placeholder accounts can't directly contain transactions, only sub-accounts"))
         
     def save(self, *args, **kwargs):
         # perform model validation
@@ -737,7 +764,6 @@ class Transaction(models.Model):
     def splits(self):
         return self.split_set.all()
     
-        
     @property
     def is_split(self):
         """

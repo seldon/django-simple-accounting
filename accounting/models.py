@@ -952,7 +952,7 @@ class AccountingProxy(object):
         
         if isinstance(invoice, Invoice) and  invoice.recipient == self.subject:
             self.make_transactions_for_invoice_payment(invoice, is_being_payed=True)                      
-            invoice.is_payed = True
+            invoice.status = Invoice.PAYED
         else: 
             # FIXME: provide a more informative error message
             raise ValueError
@@ -970,8 +970,8 @@ class AccountingProxy(object):
         """
         
         if isinstance(invoice, Invoice) and  invoice.issuer == self.subject:
-            self.make_transactions_for_invoice_payment(invoice, is_being_payed=False)                      
-            invoice.is_payed = True
+            self.make_transactions_for_invoice_payment(invoice, is_being_payed=False)
+            invoice.status = Invoice.PAYMENT_CONFIRMED                      
         else: 
             # FIXME: provide a more informative error message
             raise ValueError    

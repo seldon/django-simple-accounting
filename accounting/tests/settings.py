@@ -46,14 +46,16 @@ SITE_ID = 1
 ##------ app-specific settings (if needed) -----##
 SUBJECTIVE_MODELS = ('accounting.tests.Person', 'accounting.tests.Company')
 ACCOUNT_TYPES = (
-                 ('INCOME', 'Income'),
-                 ('EXPENSES', 'Expenses'),
-                 ('ASSET', 'Asset'),
-                 ('LIABILITY', 'Liability'),
-                 ('EQUITY', 'Equity'),
+                 ('INCOME', "Income"),
+                 ('EXPENSES', "Expenses"),
+                 ('ASSET', "Asset"),
+                 ('LIABILITY', "Liability"),
+                 ('EQUITY', "Equity"),
 )
 
 TRANSACTION_TYPES = (
-                     ('INVOICE_PAYMENT', 'Payment of an invoice '),
-                     ('INVOICE_COLLECTION', 'Collection of an invoice'),
+                     ('INVOICE_PAYMENT', "Payment of an invoice "),
+                     ('INVOICE_COLLECTION', "Collection of an invoice"),
+                     ('RECHARGE', "Recharge made by a GAS member"),
+                     ('MEMBERSHIP_FEE', "Payment of a membership fee by a GAS member"),
 )

@@ -4,6 +4,7 @@ from accounting.fields import CurrencyField
 from accounting.models import Account
 from accounting.models import AccountingProxy, economic_subject
 from accounting import types
+from accounting.utils import register_transaction, register_simple_transaction
 
 ## People
 @economic_subject
@@ -192,7 +193,15 @@ class PersonAccountingProxy(AccountingProxy):
         If this person is not a member of GAS ``gas``, 
         a ``MalformedTransaction`` exception is raised.
         """
-        pass 
+        person = self.subject.instance
+        source_account = self.system['/wallet']
+        exit_point = self.system['/expenses/gas/' + str(gas.name) + '/fees']
+        entry_point =  gas.system['/incomes/fees']
+        target_account = gas.system['/cash']
+        amount = gas.membership_fee
+        description = "Membership fee for year %(year)s" % {'year': year,}
+        issuer = person 
+        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='MEMBERSHIP_FEE')
     
     def do_recharge(self, gas, amount):
         """
@@ -202,8 +211,15 @@ class PersonAccountingProxy(AccountingProxy):
         If this person is not a member of GAS ``gas``, 
         a ``MalformedTransaction`` exception is raised.
         """
-        pass
-
+        person = self.subject.instance
+        source_account = self.system['/wallet']
+        exit_point = self.system['/expenses/gas/' + str(gas.name) + '/recharges']
+        entry_point =  gas.system['/incomes/recharges']
+        target_account = gas.system['/members/' + str(person.full_name)]
+        description = "GAS member account recharge"
+        issuer = person 
+        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='RECHARGE')
+    
 class GasAccountingProxy(AccountingProxy):
     """
     This class is meant to be the place where implementing the accounting API 

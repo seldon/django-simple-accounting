@@ -12,10 +12,6 @@ class Person(models.Model):
     name = models.CharField(max_length=128)
     surname = models.CharField(max_length=128)
     
-    @property
-    def full_name(self):
-        return self.name + self.surname
-    
     def setup_accounting(self):
         self.subject.init_accounting_system()
         system = self.accounting_system
@@ -27,7 +23,27 @@ class Person(models.Model):
         if not self.pk:
             self.setup_accounting() 
         super(Person, self).save(*args, **kwargs)
-
+    
+    def is_member(self, gas):
+        """
+        Return ``True`` if this person is member of GAS ``gas``, ``False`` otherwise. 
+        
+        If ``gas`` is not a ``GAS`` model instance, raise ``TypeError``.
+        """
+        if not isinstance(self, GAS):
+            raise TypeError(_(u"GAS membership can only be tested against a GAS model instance"))
+        return gas in [member.gas for member in self.gas_memberships]        
+    
+    @property
+    def full_name(self):
+        return self.name + self.surname
+    
+    @property
+    def gas_memberships(self):
+        """
+        The queryset of all incarnations of this person as a GAS member.
+        """
+        return self.gas_membership_set.all()
     
 ## GASs
 @economic_subject
@@ -55,10 +71,25 @@ class GAS(models.Model):
         if not self.pk:
             self.setup_accounting() 
         super(GAS, self).save(*args, **kwargs)
+        
+    @property
+    def pacts(self):
+        """
+        The queryset of all solidal pacts active for this GAS.
+        """
+        return self.pact_set.all()
+    
+    @property
+    def suppliers(self):
+        """
+        The set of all suppliers which have signed a (currently active) solidal pact with this GAS.
+        """
+        suppliers = set([pact.supplier for pact in self.pacts])
+        return suppliers
 
-
+    
 class GASMember(models.Model):
-    person = models.ForeignKey(Person)
+    person = models.ForeignKey(Person, related_name='gas_membership_set')
     gas = models.ForeignKey(GAS)
     
     def setup_accounting(self):

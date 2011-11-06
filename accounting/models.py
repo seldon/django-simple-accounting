@@ -232,10 +232,8 @@ class AccountType(models.Model):
         Return the queryset of all accounts having this type.
         """
         return self.account_set.all()
+
    
-
-
-    
 class AccountSystem(models.Model):
     """
     A double-entry accounting system.
@@ -254,12 +252,14 @@ class AccountSystem(models.Model):
     # the root account of this system
     @property
     def root(self):
-        # FIXME: implement caching !
-        for account in self.accounts:
-            if account.is_root: return account
-        # if we arrived here, no root account was created for this accounting system !
-        raise MalformedAccountTree(_(u"No root account was created for this account system !\n %s") % self)
-    
+        if not getattr(self,'_root'):
+            for account in self.accounts:
+                if account.is_root: 
+                    self._root = account
+            # if we arrived here, no root account was created for this accounting system !
+            raise MalformedAccountTree(_(u"No root account was created for this account system !\n %s") % self)
+        return self._root
+        
     def __unicode__(self):
         return _(u"Accounting system for %(subject)s" % {'subject': self.owner})
     

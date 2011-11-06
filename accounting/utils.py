@@ -145,6 +145,102 @@ def register_split_transaction(source, splits, description, issuer, date=None, k
     
     return transaction
 
+
+def register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, date=None, kind=None):
+    """
+    A factory function for registering (non-split) transactions between accounts
+    belonging to different accounting systems.
+    
+    When invoked, this function takes care of the following tasks:
+    * create a new ``Transaction`` model instance from the given input arguments
+    * for each account involved in the transaction, add an entry
+      to the corresponding ledger (as a ``LedgerEntry`` instance).   
+    
+    Since this is supposed to be a non-split transaction, only two accounts are involved:
+    a source and a target.  Moreover, since this transaction involves two different
+    accounting systems, both the exit-point account from the first system and 
+    the entry-point account to the second system must be specified.  
+    
+    Arguments
+    =========
+    ``source_account``
+        the source account for the transaction (a stock-like ``Account`` model instance)
+    
+    ``exit_point``
+        the exit-point from the first system (a flux-like ``Account`` model instance)
+        
+    ``entry_point``
+        the entry-point to the second system (a flux-like ``Account`` model instance)
+        
+     ``target_account``
+         the target account for the transaction (a stock-like ``Account`` model instance)
+        
+    ``amount`` 
+        the amount of money flowing between source and target accounts (as a signed decimal); 
+        its sign determines the flows's direction with respect to the source account 
+        (i.e., positive -> outgoing, negative -> incoming) 
+    
+    ``description``
+        A string describing what the transaction stands for
+    
+    ``issuer``
+        The economic subject (a ``Subject`` model instance) who issued the transaction
+        
+    ``date``
+        A reference date for the transaction (as a ``DateTime`` object); 
+        default to the current date & time 
+        
+    ``kind``  
+        A type specification for the transaction. It's an (optional) domain-specific string;
+        if specified, it must be one of the values listed in ``settings.TRANSACTION_TYPES``
+        
+    
+    Return value
+    ============
+    If input is valid, return the newly created ``Transaction`` model instance; 
+    otherwise, report to the client code whatever error(s) occurred during the processing, 
+    by raising a ``MalformedTransaction`` exception. 
+    """    
+    try:
+        transaction = Transaction()
+        
+        # source flow
+        source = CashFlow.objects.create(account=source_account, amount=amount)
+        transaction.source = source
+        transaction.description = description
+        transaction.issuer = issuer 
+        transaction.date = date
+        transaction.kind = kind
+        
+        transaction.save()
+
+        # construct the (single) transaction split from input arguments        
+        # target flow
+        target = CashFlow.objects.create(account=target_account, amount=-amount)
+        split = Trajectory.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)  
+        # add this single split to the transaction 
+        transaction.split_set = [split]           
+    except ValidationError, e:
+        err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
+            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+        raise MalformedTransaction(err_msg)
+    
+    ## write ledger entries
+    # source account
+    LedgerEntry.objects.create(account=source_account, transaction=transaction, amount=-amount)
+    # exit point account
+    # the sign of a ledger entry depends on the type of account involved 
+    sign = 1 if exit_point.base_type == EXPENSE else -1
+    LedgerEntry.objects.create(account=exit_point, transaction=transaction, amount=sign*amount)
+    # the sign of a ledger entry depends on the type of account involved
+    sign = 1 if entry_point.base_type == INCOME else -1
+    LedgerEntry.objects.create(account=entry_point, transaction=transaction, amount=sign*amount) 
+    # target account
+    LedgerEntry.objects.create(account=target_account, transaction=transaction, amount=amount)
+    
+    return transaction
+ 
+
 def register_internal_transaction(source, targets, description, issuer, date=None, kind=None):
     """
     A factory function for registering internal transactions.

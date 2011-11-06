@@ -1,7 +1,7 @@
 from django.db import models
 
-from accounting.fields import CurrencyField
-from accounting.models import AccountType, Account
+from accounting.fields import CurrencyField	    
+from accounting.models import Account
 from accounting.models import AccountingProxy, economic_subject
 from accounting import types
 
@@ -66,12 +66,13 @@ class GASMember(models.Model):
         
         ## account creation
         ## Person-side
+        # placeholder for payments made by this person to GASs (s)he belongs to
         try:
-            base_account = person_system['/expenses/gas'] 
+            person_system['/expenses/gas'] 
         except Account.DoesNotExist:
             person_system.add_account(parent_path='/expenses', name='gas', kind=types.expense, is_placeholder=True)
-        # placeholder for payments made to the GAS
-        person_system.add_account(parent=base_account, name=str(self.gas.name), kind=types.expense, is_placeholder=True)
+        # base account for expenses related to this GAS membership
+        person_system.add_account(parent_path='/expenses/', name=str(self.gas.name), kind=types.expense, is_placeholder=True)
         # recharges
         person_system.add_account(parent_path='/expenses/' + str(self.gas.name), name='recharges', kind=types.expense)
         # membership fees

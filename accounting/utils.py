@@ -341,13 +341,13 @@ def register_simple_transaction(source_account, target_account, amount, descript
     Arguments
     =========
     ``source_account``
-        the source account for the transaction (an ``Account`` model instance)
+        the source account for the transaction (a stock-like ``Account`` model instance)
         
     ``target_account`` 
-        the target account for the transaction (an ``Account`` model instance)
+        the target account for the transaction (a stock-like ``Account`` model instance)
         
     ``amount`` 
-        the amount of money flowing between source and target accounts (as a signed integer); 
+        the amount of money flowing between source and target accounts (as a signed decimal); 
         its sign determines the flows's direction with respect to the source account 
         (i.e., positive -> outgoing, negative -> incoming) 
     

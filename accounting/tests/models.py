@@ -1,6 +1,7 @@
 from django.db import models
 
-from accounting.fields import CurrencyField	    
+from accounting.exceptions import MalformedTransaction
+from accounting.fields import CurrencyField    
 from accounting.models import Account
 from accounting.models import AccountingProxy, economic_subject
 from accounting import types
@@ -225,6 +226,8 @@ class PersonAccountingProxy(AccountingProxy):
         a ``MalformedTransaction`` exception is raised.
         """
         person = self.subject.instance
+        if not person.is_member(gas):
+            raise MalformedTransaction("A person can't pay membership fees to a GAS that (s)he is not member of")
         source_account = self.system['/wallet']
         exit_point = self.system['/expenses/gas/' + str(gas.name) + '/fees']
         entry_point =  gas.system['/incomes/fees']
@@ -243,6 +246,8 @@ class PersonAccountingProxy(AccountingProxy):
         a ``MalformedTransaction`` exception is raised.
         """
         person = self.subject.instance
+        if not person.is_member(gas):
+            raise MalformedTransaction("A person can't make an account recharge for a GAS that (s)he is not member of")
         source_account = self.system['/wallet']
         exit_point = self.system['/expenses/gas/' + str(gas.name) + '/recharges']
         entry_point =  gas.system['/incomes/recharges']
@@ -270,6 +275,8 @@ class GasAccountingProxy(AccountingProxy):
         If ``amount`` is negative, a ``MalformedTransaction`` exception is raised
         (supplier-to-GAS money transfers should be treated as "refunds")   
         """
+        if amount < 0:
+            raise MalformedTransaction("Payment amounts must be non-negative")
         gas = self.subject.instance
         supplier = pact.supplier
         source_account = self.system['/cash']
@@ -287,6 +294,7 @@ class GasAccountingProxy(AccountingProxy):
         
         If this operation would make that member's account negative, raise a warning.
         """
+        # TODO: if this operation would make member's account negative, raise a warning
         gas = self.subject.instance
         source_account = self.system['/members/' + str(member.person.full_name)]
         target_account = self.system['/cash']
@@ -319,7 +327,14 @@ class SupplierAccountingProxy(AccountingProxy):
         If GAS ``gas`` doesn't have an active solidal pact with this supplier, 
         or if ``amount`` is negative, raise a ``MalformedTransaction`` exception.
         """
+        if amount < 0:
+            raise MalformedTransaction("Refund amounts must be non-negative")
         supplier = self.subject.instance
+        
+        if supplier not in gas.suppliers:
+            msg = "An active solidal pact must be in place between a supplier and the GAS (s)he is refunding"
+            raise MalformedTransaction(msg)        
+        
         source_account = self.system['/wallet']
         exit_point = self.system['/incomes/gas/' + str(gas.name)]
         entry_point = gas.system['/expenses/suppliers/' + str(supplier.name)] 

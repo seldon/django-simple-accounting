@@ -450,7 +450,7 @@ class Account(models.Model):
         """
         The money balance of this account (as a signed Decimal number).
         """
-        if not self._balance:
+        if not getattr(self, '_balance'):
             balance = 0
             for entry in self.ledger_entries:
                 balance += entry.amount

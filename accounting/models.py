@@ -372,15 +372,41 @@ class Account(models.Model):
     
     # model-level custom validation goes here
     def clean(self):
-        # check that this account belongs to the same accounting system of its parent (if any)
+        ## check that this account belongs to the same accounting system of its parent (if any)
         if self.parent:
             try:
                 assert self.system == self.parent.system
             except AssertionError:
                 raise ValidationError(_(u"This account and its parent belong to different accounting systems."))
-        # TODO: check that stock-like accounts (assets, liabilities) are not mixed with flux-like ones (incomes, expenses)
-        # TODO: check that root accounts (and only those) have ``name=''``
-        # TODO: account names can't contain ``ACCOUNT_PATH_SEPARATOR``
+        ## check that stock-like accounts (assets, liabilities) are not mixed with flux-like ones (incomes, expenses)
+        # a stock-like account's parent must be a stock-like account (or the root account) 
+        if self.is_stock:
+            try:
+                assert self.parent.is_stock or self.parent.is_root  
+            except AssertionError:
+                raise ValidationError(_(u"A stock-like account's parent must be a stock-like account (or the root account)"))
+        # a flux-like account's parent must be a flux-like account (or the root account) 
+        if self.is_flux:
+            try:
+                assert self.parent.is_flux or self.parent.is_root  
+            except AssertionError:
+                raise ValidationError(_(u"A flux-like account's parent must be a flux-like account (or the root account)"))      
+        ## check that root accounts (and only those) have ``name=''``
+        if self.is_root:
+            try:
+                assert self.name == ''  
+            except AssertionError:
+                raise ValidationError(_(u"A root account's name must be set to the empty string"))
+        
+        if self.name == '':
+            try:
+                assert self.is_root  
+            except AssertionError:
+                raise ValidationError(_(u"A root account's name must be set to the empty string"))      
+              
+        ## account names can't contain ``ACCOUNT_PATH_SEPARATOR``
+        if ACCOUNT_PATH_SEPARATOR in self.name:
+            raise ValidationError(_(u"Account names can't contain %s" % ACCOUNT_PATH_SEPARATOR))
                 
     def save(self, *args, **kwargs):
         # perform model validation

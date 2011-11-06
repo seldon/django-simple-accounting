@@ -831,7 +831,28 @@ class LedgerEntry(models.Model):
     entry_id = models.PositiveIntegerField(null=True, blank=True, editable=False)
     # the amount of money flowing 
     amount = CurrencyField()
+      
+    def next_entry_id_for_ledger(self):
+        """
+        Get the first available integer to be used as an ID for this entry in the ledger.
+        """
+        existing_entries = self.account.ledger_entries
+        next_id = max([entry.id for entry in existing_entries]) + 1
+        return next_id
     
+    # model-level custom validation goes here
+    def clean(self): 
+        pass
+    
+    def save(self, *args, **kwargs):
+        # if this entry is saved to the DB for the first time,
+        # set its ID in the ledger to the first available value
+        if not self.pk:
+            self.entry_id = self.next_entry_id_for_ledger() 
+        # perform model validation
+        self.full_clean()
+        super(LedgerEntry, self).save(*args, **kwargs)
+        
     @property
     def date(self):
         return self.transaction.date
@@ -842,24 +863,7 @@ class LedgerEntry(models.Model):
     
     @property
     def issuer(self):
-        return self.transaction.issuer
-    
-    
-    def next_entry_id_for_ledger(self):
-        """
-        Get the first available integer to be used as an ID for this entry in the ledger.
-        """
-        existing_entries = self.account.ledger_entries
-        next_id = max([entry.id for entry in existing_entries]) + 1
-        return next_id
-    
-    def save(self, *args, **kwargs):
-        # if this entry is saved to the DB for the first time,
-        # set its ID in the ledger to the first available value
-        if not self.pk:
-            self.entry_id = self.next_entry_id_for_ledger() 
-        super(LedgerEntry, self).save(*args, **kwargs)
-
+        return self.transaction.issuer    
 
     
 class Invoice(models.Model):

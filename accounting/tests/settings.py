@@ -44,15 +44,6 @@ SITE_ID = 1
 # other required settings for a working test environment
 
 ##------ app-specific settings (if needed) -----##
-SUBJECTIVE_MODELS = ('accounting.tests.Person', 'accounting.tests.Company')
-ACCOUNT_TYPES = (
-                 ('INCOME', "Income"),
-                 ('EXPENSES', "Expenses"),
-                 ('ASSET', "Asset"),
-                 ('LIABILITY', "Liability"),
-                 ('EQUITY', "Equity"),
-)
-
 TRANSACTION_TYPES = (
                      ('INVOICE_PAYMENT', "Payment of an invoice "),
                      ('INVOICE_COLLECTION', "Collection of an invoice"),

@@ -342,8 +342,8 @@ class AccountSystem(models.Model):
             # skip flux-like accounts, since they don't actually contain money
             if account.is_stock:
                 total_amount += account.balance
-        return total_amount    
-    
+        return total_amount
+       
 class Account(models.Model):
     """
     An account within a double-entry accounting system (i.e., an ``AccountSystem`` model instance).
@@ -570,7 +570,7 @@ class CashFlow(models.Model):
     def system(self):
         return self.account.system
 
-class Trajectory(models.Model):    
+class Split(models.Model):    
     """
     This model describes the (conceptual) path followed by a flow of money 
     within (or across) accounting systems.
@@ -579,19 +579,19 @@ class Trajectory(models.Model):
     multiple flows of money may be needed to describe it. 
     
     So, a general transaction can be thought of as a set of money flows, 
-    which, in turn, can be abstracted as *trajectories* sharing a common starting account 
+    which, in turn, can be abstracted as trajectories (splits) sharing a common starting account 
     (actually, a ``CashFlow`` instance wrapping that account). 
         
-    A trajectory can either be fully contained within a single accounting system, 
-    or extend across (at most) two of them.  We call the former ones *internal trajectories*,
+    A split can either be fully contained within a single accounting system, 
+    or extend across (at most) two of them.  We call the former ones *internal splits*,
     since they describe a flow of money internal to a given accounting system; the latter ones, 
     instead, describe flows of money involving accounts belonging to different systems.
     
-    By definition, the shared account - that from which all the trajectories composing a transaction
+    By definition, the shared account - that from which all the splits composing a transaction
     start - must be a stock-like account (since flux-like accounts can't act as starting or ending points
     due to their own nature - they are waypoints). 
     
-    A general trajectory is completely specified by these pieces of information:
+    A general split is completely specified by these pieces of information:
     * the exit point from the first accounting system (if any) 
     * the entry point to the second accounting system (if any)
     * the target account (actually, the target *flow*)
@@ -599,7 +599,7 @@ class Trajectory(models.Model):
     Note that entry/exit points must be flux-like accounts (e.g. incomes/expenses), 
     while the target account must be a stock-like one (e.g. assets/liabilities). 
     
-    For internal trajectories, entry/exit points are missing, by definition (since they are contained within 
+    For internal splits, entry/exit points are missing, by definition (since they are contained within 
     a single accounting system).    
     """
     
@@ -634,12 +634,12 @@ class Trajectory(models.Model):
     def save(self, *args, **kwargs):
         # perform model validation
         self.full_clean()
-        super(Trajectory, self).save(*args, **kwargs)
+        super(Split, self).save(*args, **kwargs)
            
     @property
     def is_internal(self):
         """
-        If this trajectory is contained within a single accounting system, 
+        If this split is contained within a single accounting system, 
         return ``True``, ``False`` otherwise.
         """
         return self.exit_point == None 
@@ -647,14 +647,14 @@ class Trajectory(models.Model):
     @property
     def target_system(self):
         """
-        The accounting system where this trajectory ends.
+        The accounting system where this split ends.
         """
         return self.entry_point.system
     
     @property
     def amount(self):
         """
-        The amount of money flowing through this trajectory.
+        The amount of money flowing through this split.
         """
         return - self.target.amount
     
@@ -668,12 +668,12 @@ class Transaction(models.Model):
     
     As a data structure, a transaction can be modeled by a 2-tuple: 
     
-    ``(source, trajectories)``
+    ``(source, splits)``
     
     where:
     * ``source`` is a ``CashFlow`` instance describing the source account 
       and the amount of money flowing from/to it
-    * ``trajectories`` is a tuple of ``Trajectory`` instances describing the
+    * ``splits`` is a tuple of ``Split`` instances describing the
       partial flows (a.k.a. *splits*) composing the transaction, and their
       paths through the accounting systems involved in the transaction.   
     
@@ -682,7 +682,7 @@ class Transaction(models.Model):
     
     A transaction is said to be:
     - *internal* iff the source and target accounts belong to the same accounting system 
-    - *split* iff it's composed of multiple trajectories (splits)
+    - *split* iff it's composed of multiple splits
     - *simple* iff it's both internal and non-split 
       
     
@@ -709,8 +709,8 @@ class Transaction(models.Model):
     issuer = models.ForeignKey(Subject, related_name='issued_transactions_set')
     # source flows for this transaction
     source = models.ForeignKey(CashFlow)     
-    # trajectory components (a.k.a. *splits*)
-    split_set = models.ManyToManyField(Trajectory)
+    # split components 
+    split_set = models.ManyToManyField(Split)
     # the type of this transaction
     kind = models.CharField(max_length=128, choices=settings.TRANSACTION_TYPES, null=True, blank=True)
     # wheter this transaction has been confirmed by every involved subject
@@ -736,14 +736,14 @@ class Transaction(models.Model):
                 assert split.exit_point.system == self.source.system
             except AssertionError:
                 raise ValidationError(_(u"Exit-points must belong to the same accounting system as the source account"))        
-        ## for internal trajectories, check that target accounts belong 
+        ## for internal splits, check that target accounts belong 
         ## to the same accounting system as the source account
         if self.is_internal:
             for split in self.splits:
                 try:
                     assert split.target.system == self.source.system
                 except AssertionError:
-                    msg = _(u"For internal trajectories, target accounts must belong to the same accounting system as the source account")
+                    msg = _(u"For internal splits, target accounts must belong to the same accounting system as the source account")
                     raise ValidationError(msg)
         ## check that no account involved in this transaction is a placeholder one
         involved_accounts = [self.source.account]
@@ -770,7 +770,7 @@ class Transaction(models.Model):
         Return ``True if this transaction is a split one;
         ``False`` otherwise.
         """
-        # a transaction is split iff it comprises more than one trajectory
+        # a transaction is split iff it comprises more than one split
         return len(self.components) > 1
     
     @property
@@ -781,8 +781,8 @@ class Transaction(models.Model):
         """
         # a transaction is internal iff it's contained within a single accounting system
         internal = True
-        for trajectory in self.splits:
-            if not trajectory.is_internal:
+        for split in self.splits:
+            if not split.is_internal:
                 internal = False                
         return internal
     
@@ -807,9 +807,9 @@ class LedgerEntry(models.Model):
     - either belonging to the same accounting system or to different ones.
     
     Given that:
-    * a general transaction is composed of one or more trajectories sharing their starting
+    * a general transaction is composed of one or more splits sharing their starting
       point (the source account)
-    * each trajectory may pass through multiple accounts (up to 3 of them)
+    * each split may pass through multiple accounts (up to 3 of them)
     * a ledger entry is generated for each account "touched" by the transaction
     
     it follows that a single transaction generates multiple ledger entries, ranging from a 

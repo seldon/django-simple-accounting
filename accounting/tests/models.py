@@ -379,7 +379,37 @@ class GasAccountingProxy(AccountingProxy):
         description = "Withdrawal from member %(member)s account by GAS %(gas)s" % {'gas': gas, 'member': member,}
         issuer = gas 
         register_simple_transaction(source_account, target_account, amount, description, issuer, date=None, kind='GAS_WITHDRAWAL')
-
+    
+    def pay_supplier_order(self, order):
+        """
+        Register the payment of a supplier order.
+        
+        Specifically, such registration is a two-step process:
+        1. First, the GAS withdraws from each member's account an amount of money corresponding
+           to the price of products (s)he bought during this order 
+           (price & quantity are as recorded by the invoice!)
+        2. Then, the GAS collects this money amounts and transfers them to the supplier's account 
+        
+        If the given supplier order hasn't been fully withdrawn by GAS members yet, raise ``MalformedTransaction``.
+        """
+        if order.status == GASSupplierOrder.WITHDRAWN:
+            ## bill members for their orders to the GAS
+            # only members participating to this order need to be billed
+            for member in order.purchasers:
+                # calculate amount to bill to this GAS member for orders (s)he issued 
+                # w.r.t. the given supplier order 
+                member_order_bill = 0 
+                issued_member_orders = member.issued_orders.filter(ordered_product__order=order)
+                for member_order in issued_member_orders:
+                    price = member_order.ordered_product.delivered_price
+                    quantity = member_order.withdrawn_amount 
+                    member_order_bill += price * quantity               
+                self.withdraw_from_member_account(member, member_order_bill)
+            ## pay supplier
+            self.pay_supplier(pact=order.pact, amount=order.total_amount)
+        else:
+            raise MalformedTransaction("Only fully withdrawn supplier orders are eligible to be payed")
+    
 class SupplierAccountingProxy(AccountingProxy):
     """
     This class is meant to be the place where implementing the accounting API 

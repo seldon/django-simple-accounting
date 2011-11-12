@@ -17,8 +17,8 @@
 from django.core.exceptions import ValidationError
 
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
-from accounting.models import Transaction, CashFlow, Trajectory, LedgerEntry
-from accounting.models.AccountType import INCOME, EXPENSE, ASSET, LIABILITY
+from accounting.models import Transaction, CashFlow, Split, LedgerEntry
+from accounting.models.AccountType import INCOME, EXPENSE
 from accounting.exceptions import MalformedTransaction
 
 def _validate_account_path(path):
@@ -105,7 +105,7 @@ def register_split_transaction(source, splits, description, issuer, date=None, k
         and the amount of money flowing from/to it
         
     ``splits`` 
-        An iterable of ``Trajectory`` model instances, representing the flow components
+        An iterable of ``Split`` model instances, representing the flow components
         (a.k.a. *splits*) from which the transaction is made. They must satisfy all the compatibility
         constraints descending from the reference accounting model (for details, 
         see ``Transaction`` model's docstring)
@@ -238,7 +238,7 @@ def register_transaction(source_account, exit_point, entry_point, target_account
         # construct the (single) transaction split from input arguments        
         # target flow
         target = CashFlow.objects.create(account=target_account, amount=-amount)
-        split = Trajectory.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)  
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)  
         # add this single split to the transaction 
         transaction.split_set = [split]           
     except ValidationError, e:
@@ -287,7 +287,7 @@ def register_internal_transaction(source, targets, description, issuer, date=Non
         (a.k.a. splits) from which the transaction is made.  
         Since we are dealing with an internal transaction, a split is fully defined 
         by the target account and the amount of money flowing to/from it 
-        (so, a ``CashFlow`` rather than a ``Trajectory`` instance).   
+        (so, a ``CashFlow`` rather than a ``Split`` instance).   
         
     ``description``
         A string describing what the transaction stands for
@@ -325,7 +325,7 @@ def register_internal_transaction(source, targets, description, issuer, date=Non
         splits = []
         for target in targets:
             # entry- & exit- points are missing, because this is an internal transaction
-            split = Trajectory.objects.create(target=target) 
+            split = Split.objects.create(target=target) 
             splits.append(split)
         
         # set transaction splits
@@ -410,7 +410,7 @@ def register_simple_transaction(source_account, target_account, amount, descript
         # entry- & exit- points are missing, because this is an internal transaction
         # target flow
         target = CashFlow.objects.create(account=target_account, amount=-amount)
-        split = Trajectory.objects.create(target=target)  
+        split = Split.objects.create(target=target)  
         # add this single split to the transaction 
         transaction.split_set = [split]           
     except ValidationError, e:

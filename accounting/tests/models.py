@@ -2,7 +2,7 @@ from django.db import models
 
 from accounting.exceptions import MalformedTransaction
 from accounting.fields import CurrencyField    
-from accounting.models import Account
+from accounting.models import Account, Invoice
 from accounting.models import AccountingProxy, economic_subject
 from accounting import types
 from accounting.utils import register_transaction, register_simple_transaction
@@ -119,6 +119,13 @@ class GASMember(models.Model):
             self.setup_accounting() 
         super(GASMember, self).save(*args, **kwargs)
     
+    @property
+    def issued_orders(self):
+        """
+        The queryset of orders this member has issued against his/her GAS. 
+        """
+        return self.issued_order_set.all()
+        
 ## Suppliers     
 @economic_subject              
 class Supplier(models.Model):
@@ -177,11 +184,62 @@ class GASSupplierStock(models.Model):
     
 
 class GASSupplierOrder(models.Model):
+    # workflow management
+    (OPEN, CLOSED, ON_COMPLETION, FINALIZED, SENT, DELIVERED, WITHDRAWN, ARCHIVED, CANCELED) = range(0,9)
+    SUPPLIER_ORDER_STATES = (
+        (OPEN), _('OPEN'),
+        (CLOSED), _('CLOSED'),
+        (ON_COMPLETION), _('ON_COMPLETION'),
+        (FINALIZED), _('FINALIZED'),
+        (SENT), _('SENT'),
+        (DELIVERED), _('DELIVERED'),
+        (WITHDRAWN), _('WITHDRAWN'),
+        (ARCHIVED), _('ARCHIVED'),
+        (CANCELED), _('CANCELED'),        
+    )
     pact = models.ForeignKey(GASSupplierSolidalPact, related_name='order_set')
+    # workflow management
+    status = models.CharField(max_lenght=20, choices=SUPPLIER_ORDER_STATES)
+    invoice = models.ForeignKey(Invoice, null=True, blank=True)
+    
+    @property
+    def order_products(self):
+        """
+        The queryset of ``GASSupplierOrderProduct``s associated with this order. 
+        """
+        return self.order_product_set.all()
+    
+    @property
+    def purchasers(self):
+        """
+        The set of GAS members participating to this supplier order.
+        """
+        # FIXME: for consistency, the return value should be a ``QuerySet``
+        purchasers = set([order.purchaser for order in self.member_orders])
+        return purchasers
+    @property
+    def member_orders(self):
+        """
+        The queryset of GAS members' orders issued against this supplier order.
+        """
+        member_orders = GASMemberOrder.objects.filter(ordered_product__order=self)
+        return member_orders
+    
+    @property
+    def total_amount(self):
+        """
+        The total expense for this order, as resulting from the invoice. 
+        """
+        amount = 0 
+        for order_product in self.order_products:
+            price = order_product.delivered_price
+            quantity = order_product.delivered_amount
+            amount += price * quantity
+        return amount    
     
 
 class GASSupplierOrderProduct(models.Model):
-    order = models.ForeignKey(GASSupplierOrder)
+    order = models.ForeignKey(GASSupplierOrder, related_name='order_product_set')
     gas_stock = models.ForeignKey(GASSupplierStock)
     # the price of the Product at the time the GASSupplierOrder was created
     initial_price = CurrencyField()
@@ -194,7 +252,19 @@ class GASSupplierOrderProduct(models.Model):
     
 # GAS member -> GAS
 class GASMemberOrder(models.Model):
-    purchaser = models.ForeignKey(GASMember)
+    # workflow management
+    (UNCONFIRMED, CONFIRMED, FINALIZED, SENT, READY, WITHDRAWN, NOT_WITHDRAWN, CANCELED) = range(0,8)
+    MEMBER_ORDER_STATES = (
+        (UNCONFIRMED), _('UNCONFIRMED'),
+        (CONFIRMED), _('CONFIRMED'),
+        (FINALIZED), _('FINALIZED'),
+        (SENT), _('SENT'),
+        (READY), _('READY'),
+        (WITHDRAWN), _('WITHDRAWN'),
+        (NOT_WITHDRAWN), _('NOT_WITHDRAWN'),
+        (CANCELED), _('CANCELED'),
+    )        
+    purchaser = models.ForeignKey(GASMember, related_name='issued_order_set')
     ordered_product = models.ForeignKey(GASSupplierOrderProduct)
     # price of the Product at order time
     ordered_price = CurrencyField()
@@ -202,7 +272,15 @@ class GASMemberOrder(models.Model):
     ordered_amount = models.PositiveIntegerField()
     # how many Product units were withdrawn by the GAS member 
     withdrawn_amount = models.PositiveIntegerField()
-
+    # workflow management
+    status = models.CharField(max_lenght=20, choices=MEMBER_ORDER_STATES)
+    
+    @property
+    def supplier_order(self):
+        """
+        Which supplier order this member order was issued against.
+        """
+        return self.ordered_product.order
 #--------------------------- Accounting proxy-classes --------------------------#
 
 class PersonAccountingProxy(AccountingProxy):

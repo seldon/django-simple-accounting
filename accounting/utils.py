@@ -60,14 +60,35 @@ def get_account_from_path(path, root):
     get_account_from_path(subpath, child) # recursion    
 
 
-def get_transaction_details(transaction):
+def transaction_details(transaction):
     """
-    Take a ``Transaction`` model instance and output a detailed, human-readable, string representation of it."
+    Take a ``Transaction`` model instance and return a detailed, human-readable string representation of it.
     """
-    attribute_list = [(field.name, getattr(transaction, field.name)) for field in transaction._meta.fields if field.name != id]
-    return [attr.join(': ') for attr in attribute_list].join('\n')
-
-
+    display_str = ""
+    display_str += "Trasanction # %s\n\n" % transaction.pk
+    display_str += "issuer: %s\n" % transaction.issuer
+    display_str += "issued on: %s\n" % transaction.date
+    display_str += "description %s\n" % transaction.description
+    display_str += "type: %s\n" % transaction.kind
+    display_str += "source account: %s\n" % transaction.source.account
+    display_str += "amount: %s\n" % transaction.source.amount
+    display_str += "is_split: %s\n" % transaction.is_split
+    display_str += "is_internal: %s\n" % transaction.is_internal
+    display_str += "is_simple: %s\n" % transaction.is_simple
+    display_str += "\nSPLITS: \n"
+    # display transaction splits 
+    split_count = 0
+    for split in transaction.splits:
+        split_count += 1
+        display_str += "split # %s\n|n" % split_count
+        display_str += "exit point: %s\n" % split.exit_point
+        display_str += "entry point: %s\n" % split.entry_point
+        display_str += "target account: %s\n" % split.target.account
+        display_str += "amount: %s\n" % transaction.target.amount
+    
+    return display_str    
+    
+    
 def register_split_transaction(source, splits, description, issuer, date=None, kind=None):
     """
     A factory function for registering general (split) transactions between accounts.
@@ -124,7 +145,7 @@ def register_split_transaction(source, splits, description, issuer, date=None, k
         transaction.split_set = splits        
     except ValidationError, e:
         err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
-            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+            % {'specs':transaction_details(transaction), 'errors':str(e.message_dict)}
         raise MalformedTransaction(err_msg)
     
     ## write ledger entries
@@ -222,7 +243,7 @@ def register_transaction(source_account, exit_point, entry_point, target_account
         transaction.split_set = [split]           
     except ValidationError, e:
         err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
-            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+            % {'specs':transaction_details(transaction), 'errors':str(e.message_dict)}
         raise MalformedTransaction(err_msg)
     
     ## write ledger entries
@@ -311,7 +332,7 @@ def register_internal_transaction(source, targets, description, issuer, date=Non
         transaction.split_set = splits          
     except ValidationError, e:
         err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
-            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+            % {'specs':transaction_details(transaction), 'errors':str(e.message_dict)}
         raise MalformedTransaction(err_msg)
     
     ## write ledger entries
@@ -394,7 +415,7 @@ def register_simple_transaction(source_account, target_account, amount, descript
         transaction.split_set = [split]           
     except ValidationError, e:
         err_msg = _(u"Transaction specs are invalid: %(specs)s.  The following error(s) occured: %(errors)s")\
-            % {'specs':get_transaction_details(transaction), 'errors':str(e.message_dict)}
+            % {'specs':transaction_details(transaction), 'errors':str(e.message_dict)}
         raise MalformedTransaction(err_msg)
     
     ## write ledger entries

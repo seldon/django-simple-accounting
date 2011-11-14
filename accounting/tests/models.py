@@ -203,7 +203,7 @@ class GASSupplierOrder(models.Model):
     invoice = models.ForeignKey(Invoice, null=True, blank=True)
     
     @property
-    def order_products(self):
+    def orderable_products(self):
         """
         The queryset of ``GASSupplierOrderProduct``s associated with this order. 
         """
@@ -217,6 +217,7 @@ class GASSupplierOrder(models.Model):
         # FIXME: for consistency, the return value should be a ``QuerySet``
         purchasers = set([order.purchaser for order in self.member_orders])
         return purchasers
+
     @property
     def member_orders(self):
         """
@@ -231,7 +232,7 @@ class GASSupplierOrder(models.Model):
         The total expense for this order, as resulting from the invoice. 
         """
         amount = 0 
-        for order_product in self.order_products:
+        for order_product in self.orderable_products:
             price = order_product.delivered_price
             quantity = order_product.delivered_amount
             amount += price * quantity

@@ -4,7 +4,7 @@ from accounting.exceptions import MalformedTransaction
 from accounting.fields import CurrencyField    
 from accounting.models import Account, Invoice
 from accounting.models import AccountingProxy, AccountingDescriptor, economic_subject
-from accounting import types
+from accounting.models import account_type
 from accounting.utils import register_transaction, register_simple_transaction
 
 #--------------------------- Accounting proxy-classes --------------------------#
@@ -193,7 +193,7 @@ class Person(models.Model):
         self.subject.init_accounting_system()
         system = self.accounting_system
         # create a generic asset-type account (a sort of "virtual wallet")
-        system.add_account(parent_path='/', name='wallet', kind=types.asset)  
+        system.add_account(parent_path='/', name='wallet', kind=account_type.asset)  
     
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -235,15 +235,15 @@ class GAS(models.Model):
         system = self.accounting_system
         ## setup a base account hierarchy
         # GAS's cash       
-        system.add_account(parent_path='/', name='cash', kind=types.asset) 
+        system.add_account(parent_path='/', name='cash', kind=account_type.asset) 
         # root for GAS members' accounts 
-        system.add_account(parent_path='/', name='members', kind=types.asset, is_placeholder=True)
+        system.add_account(parent_path='/', name='members', kind=account_type.asset, is_placeholder=True)
         # a placeholder for organizing transactions representing payments to suppliers
-        system.add_account(parent_path='/expenses', name='suppliers', kind=types.expense, is_placeholder=True)
+        system.add_account(parent_path='/expenses', name='suppliers', kind=account_type.expense, is_placeholder=True)
         # recharges made by GAS members to their own account
-        system.add_account(parent_path='/incomes', name='recharges', kind=types.income)
+        system.add_account(parent_path='/incomes', name='recharges', kind=account_type.income)
         # membership fees
-        system.add_account(parent_path='/incomes', name='fees', kind=types.income)
+        system.add_account(parent_path='/incomes', name='fees', kind=account_type.income)
         
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -281,15 +281,15 @@ class GASMember(models.Model):
         try:
             person_system['/expenses/gas'] 
         except Account.DoesNotExist:
-            person_system.add_account(parent_path='/expenses', name='gas', kind=types.expense, is_placeholder=True)
+            person_system.add_account(parent_path='/expenses', name='gas', kind=account_type.expense, is_placeholder=True)
         # base account for expenses related to this GAS membership
-        person_system.add_account(parent_path='/expenses/', name=str(self.gas.name), kind=types.expense, is_placeholder=True)
+        person_system.add_account(parent_path='/expenses/', name=str(self.gas.name), kind=account_type.expense, is_placeholder=True)
         # recharges
-        person_system.add_account(parent_path='/expenses/' + str(self.gas.name), name='recharges', kind=types.expense)
+        person_system.add_account(parent_path='/expenses/' + str(self.gas.name), name='recharges', kind=account_type.expense)
         # membership fees
-        person_system.add_account(parent_path='/expenses/' + str(self.gas.name), name='fees', kind=types.expense)
+        person_system.add_account(parent_path='/expenses/' + str(self.gas.name), name='fees', kind=account_type.expense)
         ## GAS-side   
-        gas_system.add_account(parent_path='/members', name=str(self.person.full_name), kind=types.asset)
+        gas_system.add_account(parent_path='/members', name=str(self.person.full_name), kind=account_type.asset)
     
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -316,9 +316,9 @@ class Supplier(models.Model):
         system = self.accounting_system
         ## setup a base account hierarchy   
         # a generic asset-type account (a sort of "virtual wallet")        
-        system.add_account(parent_path='/', name='wallet', kind=types.asset)  
+        system.add_account(parent_path='/', name='wallet', kind=account_type.asset)  
         # a placeholder for organizing transactions representing GAS payments
-        system.add_account(parent_path='/incomes', name='gas', kind=types.income, is_placeholder=True)
+        system.add_account(parent_path='/incomes', name='gas', kind=account_type.income, is_placeholder=True)
         
     def save(self, *args, **kwargs):
         # run only at instance creation-time 
@@ -345,10 +345,10 @@ class GASSupplierSolidalPact(models.Model):
         ## create accounts for logging GAS <-> Supplier transactions
         # GAS-side
         gas_system = self.gas.subject.accounting_system
-        gas_system.add_account(parent_path='/expenses/suppliers', name=str(self.supplier.name), kind=types.expense)
+        gas_system.add_account(parent_path='/expenses/suppliers', name=str(self.supplier.name), kind=account_type.expense)
         # Supplier-side
         supplier_system = self.supplier.subject.accounting_system
-        supplier_system.add_account(parent_path='/incomes/gas', name=str(self.gas.name), kind=types.income)
+        supplier_system.add_account(parent_path='/incomes/gas', name=str(self.gas.name), kind=account_type.income)
     
     def save(self, *args, **kwargs):
         # run only at instance creation-time 

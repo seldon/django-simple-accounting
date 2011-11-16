@@ -72,15 +72,14 @@ class Subject(models.Model):
     def init_accounting_system(self):
         """
         Perform routine tasks required to initialize the accounting system for a subject. 
-        """
-        from accounting import types 
+        """ 
         # create a new accounting system bound to the subject
         system = AccountSystem.objects.create(owner=self)
         # create a root account
         system.add_root_account()
         # create root accounts for incomes and expenses
-        system.add_account(parent=system.root, name='incomes', kind=types.income)
-        system.add_account(parent=system.root, name='expenses', kind=types.expense)
+        system.add_account(parent=system.root, name='incomes', kind=account_type.income)
+        system.add_account(parent=system.root, name='expenses', kind=account_type.expense)
 
 class SubjectDescriptor(object):
     """
@@ -185,18 +184,21 @@ class AccountType(models.Model):
     (e.g. *bank account*, *cash*, *credit card*, etc.) with domain-specific semantics.
     """
     
+    
+    BASIC_ACCOUNT_TYPES = ('ROOT', 'INCOME', 'EXPENSE', 'ASSET', 'LIABILITY')
+    
     (ROOT, INCOME, EXPENSE, ASSET, LIABILITY) = range(0,5) 
 
-    BASE_ACCOUNT_TYPES = (
+    BASIC_ACCOUNT_TYPES_CHOICES = (
         (ROOT, _('Root')), # needed for root accounts
         (INCOME, _('Incomes')),
         (EXPENSE, _('Expenses')),
         (ASSET, _('Assets')),
         (LIABILITY, _('Liabilities')),
-    )
-    
+    ) 
+         
     name = models.CharField(max_length=50)
-    base_type = models.CharField(max_length=20, choices=BASE_ACCOUNT_TYPES)
+    base_type = models.CharField(max_length=20, choices=BASIC_ACCOUNT_TYPES_CHOICES)
     
     def normalize_account_type_name(self):
         """
@@ -232,6 +234,60 @@ class AccountType(models.Model):
         Return the queryset of all accounts having this type.
         """
         return self.account_set.all()
+
+
+class BasicAccountTypeDict(dict):
+    """
+    An helper dictionary-like object for accessing basic account types.
+    
+    Given the name of a basic account type, return the model instance representing it.
+    
+    If the given key is not a valid name for a basic account type 
+    (as defined by ``AccountType.BASIC_ACCOUNT_TYPES``), raise a ``KeyError``.
+    """
+    
+    def __getitem__(self, key):
+
+        if key not in AccountType.BASIC_ACCOUNT_TYPES:
+            raise KeyError("%k is not a valid name for a basic account type" % key)
+        
+        try:
+            rv = super(BasicAccountTypeDict, self).__getitem__(key)
+        except KeyError:
+            rv = self[key] = AccountType.objects.get(name=key)
+        return rv
+
+
+class BasicAccountType(object):
+    """
+    A simple registry of basic account types.
+    
+    To retrieve account type ``<name>``, just access instance attribute ``.<name>``.
+    """
+
+    _d = BasicAccountTypeDict()
+
+    @property
+    def root(self):
+        return self._d['ROOT']
+
+    @property
+    def income(self):
+        return self._d['INCOME']
+
+    @property
+    def expense(self):
+        return self._d['EXPENSE']
+
+    @property
+    def asset(self):
+        return self._d['ASSET']
+
+    @property
+    def liability(self):
+        return self._d['LIABILITY']
+
+account_type = BasicAccountType()
 
    
 class AccountSystem(models.Model):
@@ -320,8 +376,7 @@ class AccountSystem(models.Model):
         """
         Create a root account for this system.
         """
-        from accounting import types
-        self.add_account(parent=None, name='', kind=types.root, is_placeholder=True)
+        self.add_account(parent=None, name='', kind=account_type.root, is_placeholder=True)
         
     @property
     def accounts(self):

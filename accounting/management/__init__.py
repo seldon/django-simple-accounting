@@ -14,12 +14,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with ``django-simple-accounting``. If not, see <http://www.gnu.org/licenses/>.
 
+from django.db.models.signals import post_syncdb
+
+import accounting.models
 from accounting.models import AccountType
 
-# create basic account types and store them in this module's namespace,
-# so that they can be accessed as ``types.<name>``
-root = AccountType.objects.create(name='ROOT', base_type=AccountType.ROOT)
-income = AccountType.objects.create(name='INCOME', base_type=AccountType.INCOME)
-expense = AccountType.objects.create(name='EXPENSE', base_type=AccountType.EXPENSE)
-asset = AccountType.objects.create(name='ASSET', base_type=AccountType.ASSET)
-liability = AccountType.objects.create(name='LIABILITY', base_type=AccountType.LIABILITY)
+def create_basic_account_types(sender, app, created_models, verbosity, interactive, **kwargs):
+    # execute IFF the DB table for the ``AccountType`` model has just been created
+    if AccountType in created_models:  
+        # create basic account types
+        AccountType.objects.create(name='ROOT', base_type=AccountType.ROOT)
+        AccountType.objects.create(name='INCOME', base_type=AccountType.INCOME)
+        AccountType.objects.create(name='EXPENSE', base_type=AccountType.EXPENSE)
+        AccountType.objects.create(name='ASSET', base_type=AccountType.ASSET)
+        AccountType.objects.create(name='LIABILITY', base_type=AccountType.LIABILITY)    
+
+post_syncdb.connect(create_basic_account_types, sender=accounting.models)

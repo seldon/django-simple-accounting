@@ -145,7 +145,7 @@ def economic_subject(cls):
     # add a corresponding ``Subject`` instance pointing to it
     @receiver(post_save, sender=model, weak=False)
     def subjectify(sender, instance, created, **kwargs):
-        if sender in subjective_models and created:
+        if created:
             ct = ContentType.objects.get_for_model(sender)
             Subject.objects.create(content_type=ct, object_id=instance.pk)     
     

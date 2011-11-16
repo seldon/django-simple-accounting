@@ -669,8 +669,8 @@ class Split(models.Model):
     a single accounting system).    
     """
     
-    entry_point = models.ForeignKey(Account, null=True, blank=True)
-    exit_point = models.ForeignKey(Account, null=True, blank=True)
+    entry_point = models.ForeignKey(Account, null=True, blank=True, related_name='entry_points_set')
+    exit_point = models.ForeignKey(Account, null=True, blank=True, related_name='exit_points_set')
     target = models.ForeignKey(CashFlow)
     
     # model-level custom validation goes here

@@ -78,8 +78,8 @@ class Subject(models.Model):
         # create a root account
         system.add_root_account()
         # create root accounts for incomes and expenses
-        system.add_account(parent=system.root, name='incomes', kind=account_type.income)
-        system.add_account(parent=system.root, name='expenses', kind=account_type.expense)
+        system.add_account(parent_path=system.root.path, name='incomes', kind=account_type.income)
+        system.add_account(parent_path=system.root.path, name='expenses', kind=account_type.expense)
 
 class SubjectDescriptor(object):
     """
@@ -387,7 +387,7 @@ class AccountSystem(models.Model):
         """
         Create a root account for this system.
         """
-        self.add_account(parent=None, name='', kind=account_type.root, is_placeholder=True)
+        self.add_account(parent_path='', name='', kind=account_type.root, is_placeholder=True)
         
     @property
     def accounts(self):

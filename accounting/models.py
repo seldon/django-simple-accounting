@@ -942,7 +942,7 @@ class Invoice(models.Model):
     for example, when an invoice is payed, the system could automatically create a transaction reflecting this action.     
     """
     (ISSUED, OVERDUE, PAYED, PAYMENT_CONFIRMED) = range(0,4)
-    INVOICE_STATES = (
+    INVOICE_STATES_CHOICES = (
         (ISSUED, _('Issued')),
         (OVERDUE, _('Overdue')),
         (PAYED, _('Payed')),
@@ -962,7 +962,7 @@ class Invoice(models.Model):
     due_date = models.DateTimeField()
     # current status of this invoice
     # TODO: implement full-fledged workflow management 
-    status = models.CharField(max_length=20, choices=INVOICE_STATES)
+    status = models.CharField(max_length=20, choices=INVOICE_STATES_CHOICES)
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     

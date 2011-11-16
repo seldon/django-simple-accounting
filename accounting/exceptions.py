@@ -36,10 +36,14 @@ class MalformedTransaction(AccountingModelException):
     """
     pass
 
-
 class SubjectiveAPIError(AccountingModelException):
     """
     Raised when a client model can't be declared as *subjective*. 
     """
     pass
         
+class InvalidAccountingOperation(AccountingModelException):
+    """
+    Raised when an invalid accounting operation is requested. 
+    """
+    pass

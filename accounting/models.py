@@ -308,7 +308,7 @@ class AccountSystem(models.Model):
     # the root account of this system
     @property
     def root(self):
-        if not getattr(self,'_root'):
+        if not getattr(self,'_root', None):
             for account in self.accounts:
                 if account.is_root: 
                     self._root = account
@@ -505,7 +505,7 @@ class Account(models.Model):
         """
         The money balance of this account (as a signed Decimal number).
         """
-        if not getattr(self, '_balance'):
+        if not getattr(self, '_balance', None):
             balance = 0
             for entry in self.ledger_entries:
                 balance += entry.amount

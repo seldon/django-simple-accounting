@@ -123,6 +123,10 @@ def economic_subject(cls):
         subj = foo.subject
     
     If ``foo`` is deleted at a later time, then ``subj`` is automatically deleted, too.
+    
+    Finally, if some accounting-related setup tasks should be performed at instance-creation time,
+    you can place the relevant logic within a ``.setup_accounting()`` (instance) method,
+    that will be automagically called when the model is instantiated.
     """
     
     # a registry holding subjective_model classes
@@ -147,8 +151,12 @@ def economic_subject(cls):
     def subjectify(sender, instance, created, **kwargs):
         if created:
             ct = ContentType.objects.get_for_model(sender)
-            Subject.objects.create(content_type=ct, object_id=instance.pk)     
-    
+            Subject.objects.create(content_type=ct, object_id=instance.pk)
+            ## setup accounting-related things for this subjective instance
+            # call the ``.setup_accounting()`` method, if any
+            if getattr(instance, 'setup_accounting', None):     
+                instance.setup_accounting()
+            
     # clean-up dangling subjects after a subjective model instance is deleted from the DB
     @receiver(post_delete, sender=model, weak=False)
     def cleanup_stale_subjects(sender, instance, **kwargs):

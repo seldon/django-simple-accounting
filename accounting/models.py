@@ -943,10 +943,10 @@ class Invoice(models.Model):
     """
     (ISSUED, OVERDUE, PAYED, PAYMENT_CONFIRMED) = range(0,4)
     INVOICE_STATES = (
-        (ISSUED), _('Issued'),
-        (OVERDUE), _('Overdue'),
-        (PAYED), _('Payed'),
-        (PAYMENT_CONFIRMED), _('Payment confirmed'),
+        (ISSUED, _('Issued')),
+        (OVERDUE, _('Overdue')),
+        (PAYED, _('Payed')),
+        (PAYMENT_CONFIRMED, _('Payment confirmed')),
     )
     # who issued the invoice
     issuer = models.ForeignKey(Subject, related_name='issued_invoice_set')

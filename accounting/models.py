@@ -208,7 +208,7 @@ class AccountType(models.Model):
         (LIABILITY, _('Liabilities')),
     ) 
          
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
     base_type = models.CharField(max_length=20, choices=BASIC_ACCOUNT_TYPES_CHOICES)
     
     def normalize_account_type_name(self):

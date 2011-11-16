@@ -144,14 +144,14 @@ def economic_subject(cls):
     # when a new instance of a subjective model is created, 
     # add a corresponding ``Subject`` instance pointing to it
     # TODO: deal with subjective models's instances added via fixtures
-    @receiver(post_save)
+    @receiver(post_save, sender=model)
     def subjectify(sender, instance, created, **kwargs):
         if sender in subjective_models and created:
             ct = ContentType.objects.get_for_model(sender)
             Subject.objects.create(content_type=ct, object_id=instance.pk)     
     
     # clean-up dangling subjects after a subjective model instance is deleted from the DB
-    @receiver(post_delete)
+    @receiver(post_delete, sender=model)
     def cleanup_stale_subjects(sender, instance, **kwargs):
         if sender in subjective_models:
             instance.subject.delete()

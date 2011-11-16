@@ -195,8 +195,8 @@ class AccountType(models.Model):
         (LIABILITY, _('Liabilities')),
     )
     
-    name = models.CharField(max_lenght=50)
-    base_type = models.CharField(max_lenght=20, choices=BASE_ACCOUNT_TYPES)
+    name = models.CharField(max_length=50)
+    base_type = models.CharField(max_length=20, choices=BASE_ACCOUNT_TYPES)
     
     def normalize_account_type_name(self):
         """
@@ -896,7 +896,7 @@ class Invoice(models.Model):
     due_date = models.DateTimeField()
     # current status of this invoice
     # TODO: implement full-fledged workflow management 
-    status = models.CharField(max_lenght=20, choices=INVOICE_STATES)
+    status = models.CharField(max_length=20, choices=INVOICE_STATES)
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     
@@ -992,6 +992,7 @@ class AccountingDescriptor(object):
          
          @economic_subject
          class Foo(models.Model):
+         
              # model definition
              accounting =  AccountingDescriptor()
     

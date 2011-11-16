@@ -157,7 +157,9 @@ def economic_subject(cls):
             instance.subject.delete()
         
     ## --------- END signal registration ----------------- ##
-
+    
+    subjective_models.append(model)
+    
     return model
 
 

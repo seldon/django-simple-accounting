@@ -27,7 +27,7 @@ from django.contrib.contenttypes import generic
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
 from accounting.fields import CurrencyField
 from accounting.managers import AccountManager  
-from accounting.exceptions import MalformedAccountTree, SubjectiveAPIError
+from accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation
 
 from datetime import datetime
 
@@ -859,8 +859,27 @@ class Transaction(models.Model):
         ``False`` otherwise.
         """
         # a transaction is simple iff it's *both* internal and non-split
-        return self.is_internal and not self.is_split   
-   
+        return self.is_internal and not self.is_split
+    
+    @property
+    def ledger_entries(self):
+        """
+        The queryset of ledger entries bound to this transaction.
+        """   
+        return self.entry_set.all()
+    
+    def confirm(self):
+        """
+        Set this transaction as CONFIRMED.
+        
+        If this transaction had already been confirmed, raise ``InvalidAccountingOperation``.
+        """
+        if not self.is_confirmed:
+            self.is_confirmed = True
+            self.save()
+        else:
+            raise InvalidAccountingOperation("This transaction had already been confirmed.")
+        
 
 class LedgerEntry(models.Model):
     """

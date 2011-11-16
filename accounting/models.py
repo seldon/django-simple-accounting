@@ -131,7 +131,7 @@ def economic_subject(cls):
     model = cls
     # if this model has already been registered, skip further processing 
     if model in subjective_models:
-        return
+        return model
     
     if 'subject' in model.__dict__.keys():
         # this model already has an attribute named `subject`, 
@@ -157,6 +157,8 @@ def economic_subject(cls):
             instance.subject.delete()
         
     ## --------- END signal registration ----------------- ##
+
+    return model
 
 
 class AccountType(models.Model):

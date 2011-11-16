@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.translation import ugettext_lazy as _
 
 from accounting.exceptions import MalformedTransaction
 from accounting.fields import CurrencyField    
@@ -367,19 +368,19 @@ class GASSupplierOrder(models.Model):
     # workflow management
     (OPEN, CLOSED, ON_COMPLETION, FINALIZED, SENT, DELIVERED, WITHDRAWN, ARCHIVED, CANCELED) = range(0,9)
     SUPPLIER_ORDER_STATES = (
-        (OPEN), _('OPEN'),
-        (CLOSED), _('CLOSED'),
-        (ON_COMPLETION), _('ON_COMPLETION'),
-        (FINALIZED), _('FINALIZED'),
-        (SENT), _('SENT'),
-        (DELIVERED), _('DELIVERED'),
-        (WITHDRAWN), _('WITHDRAWN'),
-        (ARCHIVED), _('ARCHIVED'),
-        (CANCELED), _('CANCELED'),        
+        (OPEN, _('OPEN')),
+        (CLOSED, _('CLOSED')),
+        (ON_COMPLETION, _('ON_COMPLETION')),
+        (FINALIZED, _('FINALIZED')),
+        (SENT, _('SENT')),
+        (DELIVERED, _('DELIVERED')),
+        (WITHDRAWN, _('WITHDRAWN')),
+        (ARCHIVED, _('ARCHIVED')),
+        (CANCELED, _('CANCELED')),        
     )
     pact = models.ForeignKey(GASSupplierSolidalPact, related_name='order_set')
     # workflow management
-    status = models.CharField(max_lenght=20, choices=SUPPLIER_ORDER_STATES)
+    status = models.CharField(max_length=20, choices=SUPPLIER_ORDER_STATES)
     invoice = models.ForeignKey(Invoice, null=True, blank=True)
     
     @property
@@ -436,14 +437,14 @@ class GASMemberOrder(models.Model):
     # workflow management
     (UNCONFIRMED, CONFIRMED, FINALIZED, SENT, READY, WITHDRAWN, NOT_WITHDRAWN, CANCELED) = range(0,8)
     MEMBER_ORDER_STATES = (
-        (UNCONFIRMED), _('UNCONFIRMED'),
-        (CONFIRMED), _('CONFIRMED'),
-        (FINALIZED), _('FINALIZED'),
-        (SENT), _('SENT'),
-        (READY), _('READY'),
-        (WITHDRAWN), _('WITHDRAWN'),
-        (NOT_WITHDRAWN), _('NOT_WITHDRAWN'),
-        (CANCELED), _('CANCELED'),
+        (UNCONFIRMED, _('UNCONFIRMED')),
+        (CONFIRMED, _('CONFIRMED')),
+        (FINALIZED, _('FINALIZED')),
+        (SENT, _('SENT')),
+        (READY, _('READY')),
+        (WITHDRAWN, _('WITHDRAWN')),
+        (NOT_WITHDRAWN, _('NOT_WITHDRAWN')),
+        (CANCELED, _('CANCELED')),
     )        
     purchaser = models.ForeignKey(GASMember, related_name='issued_order_set')
     ordered_product = models.ForeignKey(GASSupplierOrderProduct)
@@ -454,7 +455,7 @@ class GASMemberOrder(models.Model):
     # how many Product units were withdrawn by the GAS member 
     withdrawn_amount = models.PositiveIntegerField()
     # workflow management
-    status = models.CharField(max_lenght=20, choices=MEMBER_ORDER_STATES)
+    status = models.CharField(max_length=20, choices=MEMBER_ORDER_STATES)
     
     @property
     def supplier_order(self):

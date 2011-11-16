@@ -18,7 +18,7 @@ from django.core.exceptions import ValidationError
 
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
 from accounting.models import Transaction, CashFlow, Split, LedgerEntry
-from accounting.models.AccountType import INCOME, EXPENSE
+from accounting.models import AccountType
 from accounting.exceptions import MalformedTransaction
 
 def _validate_account_path(path):
@@ -155,10 +155,10 @@ def register_split_transaction(source, splits, description, issuer, date=None, k
     for split in splits:
         if split.exit_point: 
             # the sign of a ledger entry depends on the type of account involved 
-            sign = 1 if split.exit_point.base_type == EXPENSE else -1
+            sign = 1 if split.exit_point.base_type == AccountType.EXPENSE else -1
             LedgerEntry.objects.create(account=split.exit_point, transaction=transaction, amount=sign*split.amount)
             # the sign of a ledger entry depends on the type of account involved
-            sign = 1 if split.entry_point.base_type == INCOME else -1
+            sign = 1 if split.entry_point.base_type == AccountType.INCOME else -1
             LedgerEntry.objects.create(account=split.entry_point, transaction=transaction, amount=sign*split.amount) 
         # target account
         # note that, by definition, ``split.amount == - split.target.amount)                
@@ -251,10 +251,10 @@ def register_transaction(source_account, exit_point, entry_point, target_account
     LedgerEntry.objects.create(account=source_account, transaction=transaction, amount=-amount)
     # exit point account
     # the sign of a ledger entry depends on the type of account involved 
-    sign = 1 if exit_point.base_type == EXPENSE else -1
+    sign = 1 if exit_point.base_type == AccountType.EXPENSE else -1
     LedgerEntry.objects.create(account=exit_point, transaction=transaction, amount=sign*amount)
     # the sign of a ledger entry depends on the type of account involved
-    sign = 1 if entry_point.base_type == INCOME else -1
+    sign = 1 if entry_point.base_type == AccountType.INCOME else -1
     LedgerEntry.objects.create(account=entry_point, transaction=transaction, amount=sign*amount) 
     # target account
     LedgerEntry.objects.create(account=target_account, transaction=transaction, amount=amount)

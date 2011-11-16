@@ -149,7 +149,7 @@ class SupplierAccountingProxy(AccountingProxy):
     tailoring it to the specific needs of the ``Supplier``' model.    
     """
     
-    def confirme_invoice_payment(self, invoice):
+    def confirm_invoice_payment(self, invoice):
         """
         Confirm that an invoice issued by this supplier has been actually payed.
         """

@@ -143,7 +143,6 @@ def economic_subject(cls):
     ## --------- BEGIN signal registration ----------------- ##
     # when a new instance of a subjective model is created, 
     # add a corresponding ``Subject`` instance pointing to it
-    # TODO: deal with subjective models's instances added via fixtures
     @receiver(post_save, sender=model, weak=False)
     def subjectify(sender, instance, created, **kwargs):
         if sender in subjective_models and created:

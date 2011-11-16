@@ -428,7 +428,7 @@ class Account(models.Model):
     
     system = models.ForeignKey(AccountSystem, related_name='account_set')
     parent = models.ForeignKey('self', null=True, blank=True)
-    name = models.CharField(max_length=128)
+    name = models.CharField(max_length=128, blank=True)
     kind = models.ForeignKey(AccountType, related_name='account_set')
     is_placeholder = models.BooleanField(default=False)
     objects = AccountManager()

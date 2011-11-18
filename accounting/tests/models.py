@@ -40,8 +40,9 @@ class PersonAccountingProxy(AccountingProxy):
         amount = gas.membership_fee
         description = "Membership fee for year %(year)s" % {'year': year,}
         issuer = person 
-        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='MEMBERSHIP_FEE')
-    
+        transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='MEMBERSHIP_FEE')
+        transaction.add_references([person, gas])  
+        
     def do_recharge(self, gas, amount):
         """
         Do a recharge of amount ``amount`` to the corresponding member account 
@@ -59,8 +60,8 @@ class PersonAccountingProxy(AccountingProxy):
         target_account = gas.system['/members/' + str(person.full_name)]
         description = "GAS member account recharge"
         issuer = person 
-        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='RECHARGE')
-
+        transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='RECHARGE')
+        transaction.add_references([person, gas])
 
 class GasAccountingProxy(AccountingProxy):
     """
@@ -73,13 +74,16 @@ class GasAccountingProxy(AccountingProxy):
     tailoring it to the specific needs of the ``GAS``' model.    
     """
     
-    def pay_supplier(self, pact, amount):
+    def pay_supplier(self, pact, amount, refs=None):
         """
         Transfer a given (positive) amount ``amount`` of money from the GAS's cash
         to a supplier for which a solidal pact is currently active.
         
         If ``amount`` is negative, a ``MalformedTransaction`` exception is raised
-        (supplier-to-GAS money transfers should be treated as "refunds")   
+        (supplier-to-GAS money transfers should be treated as "refunds").
+        
+        References for this transaction may be passed as the ``refs`` argument
+        (e.g. a list of supplier orders this payment is related to).   
         """
         if amount < 0:
             raise MalformedTransaction("Payment amounts must be non-negative")
@@ -91,14 +95,19 @@ class GasAccountingProxy(AccountingProxy):
         target_account = supplier.system['/wallet']
         description = "Payment from GAS %(gas)s to supplier %(supplier)s" % {'gas': gas, 'supplier': supplier,}
         issuer = gas 
-        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='PAYMENT')
+        transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='PAYMENT')
+        if refs:
+            transaction.add_references(refs)
         
-    def withdraw_from_member_account(self, member, amount):
+    def withdraw_from_member_account(self, member, amount, refs=None):
         """
         Withdraw a given amount ``amount`` of money from the account of a member
         of this GAS and bestow it to the GAS's cash.
         
         If this operation would make that member's account negative, raise a warning.
+        
+        References for this transaction may be passed as the ``refs`` argument
+        (e.g. a list of GAS member orders this withdrawal is related to).
         """
         # TODO: if this operation would make member's account negative, raise a warning
         gas = self.subject.instance
@@ -106,7 +115,9 @@ class GasAccountingProxy(AccountingProxy):
         target_account = self.system['/cash']
         description = "Withdrawal from member %(member)s account by GAS %(gas)s" % {'gas': gas, 'member': member,}
         issuer = gas 
-        register_simple_transaction(source_account, target_account, amount, description, issuer, date=None, kind='GAS_WITHDRAWAL')
+        transaction = register_simple_transaction(source_account, target_account, amount, description, issuer, date=None, kind='GAS_WITHDRAWAL')
+        if refs:
+            transaction.add_references(refs)
     
     def pay_supplier_order(self, order):
         """
@@ -156,13 +167,16 @@ class SupplierAccountingProxy(AccountingProxy):
         """
         self.set_invoice_payed(invoice)
     
-    def refund_gas(self, gas, amount):
+    def refund_gas(self, gas, amount, refs=None):
         """
         Refund a given ``amount`` of money to a GAS for which a solidal pact 
         is currently active.
         
         If GAS ``gas`` doesn't have an active solidal pact with this supplier, 
         or if ``amount`` is negative, raise a ``MalformedTransaction`` exception.
+        
+        References for this transaction may be passed as the ``refs`` argument
+        (e.g. a list of supplier orders this refund is related to).
         """
         if amount < 0:
             raise MalformedTransaction("Refund amounts must be non-negative")
@@ -178,8 +192,9 @@ class SupplierAccountingProxy(AccountingProxy):
         target_account = gas.system['/cash']
         description = "Refund from supplier %(supplier)s to GAS %(gas)s" % {'gas': gas, 'supplier': supplier,}
         issuer = supplier 
-        register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='REFUND')
-
+        transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='REFUND')
+        if refs:
+            transaction.add_references(refs)
 #--------------------------- Model classes --------------------------#
 
 ## People

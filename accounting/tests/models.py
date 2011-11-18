@@ -148,7 +148,36 @@ class GasAccountingProxy(AccountingProxy):
             ## pay supplier
             self.pay_supplier(pact=order.pact, amount=order.total_amount)
         else:
-            raise MalformedTransaction("Only fully withdrawn supplier orders are eligible to be payed")
+            raise MalformedTransaction("Only fully withdrawn supplier orders are eligible to be payed")        
+        
+    def accounted_amount_by_gas_member(self, order):
+        """
+        Given a supplier order ``order``, return an annotated set of GAS members
+        partecipating to that order.
+        
+        Each GAS member instance will have an ``.accounted_amount`` attribute,
+        representing the total amount of money already accounted for with respect 
+        to the entire set of orders placed by that GAS member within ``order``.
+        
+        A (member) order is considered to be "accounted" iff a transaction recording it
+        exists within that GAS's accounting system.
+        
+        If ``order`` has not been placed by the GAS owning this accounting system,
+        raise ``TypeError``.   
+        """
+        from accounting.models import Transaction
+        gas = self.subject.instance
+        if order.pact.gas == gas:
+            members = set()
+            for member in order.purchasers:
+                # retrieve transactions related to this GAS member and order,
+                # including only withdrawals made by the GAS from members' accounts
+                txs = Transaction.objects.get_by_reference([member, order]).filter(kind='GAS_WITHDRAWAL')
+                member.accounted_amount = sum([tx.source.amount for tx in txs])
+                members.add(member)
+            return members
+        else:
+            raise TypeError("GAS %(gas)s has not placed order %(order)s" % {'gas': gas, 'order': order})
 
 
 class SupplierAccountingProxy(AccountingProxy):

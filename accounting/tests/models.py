@@ -240,13 +240,7 @@ class Person(models.Model):
         system = self.accounting_system
         # create a generic asset-type account (a sort of "virtual wallet")
         system.add_account(parent_path='/', name='wallet', kind=account_type.asset)  
-    
-    def save(self, *args, **kwargs):
-        # run only at instance creation-time 
-        if not self.pk:
-            self.setup_accounting() 
-        super(Person, self).save(*args, **kwargs)
-    
+       
     def is_member(self, gas):
         """
         Return ``True`` if this person is member of GAS ``gas``, ``False`` otherwise. 
@@ -299,12 +293,6 @@ class GAS(models.Model):
         # membership fees
         system.add_account(parent_path='/incomes', name='fees', kind=account_type.income)
         
-    def save(self, *args, **kwargs):
-        # run only at instance creation-time 
-        if not self.pk:
-            self.setup_accounting() 
-        super(GAS, self).save(*args, **kwargs)
-        
     @property
     def pacts(self):
         """
@@ -353,12 +341,6 @@ class GASMember(models.Model):
         ## GAS-side   
         gas_system.add_account(parent_path='/members', name=str(self.person.full_name), kind=account_type.asset)
     
-    def save(self, *args, **kwargs):
-        # run only at instance creation-time 
-        if not self.pk:
-            self.setup_accounting() 
-        super(GASMember, self).save(*args, **kwargs)
-    
     @property
     def issued_orders(self):
         """
@@ -389,12 +371,6 @@ class Supplier(models.Model):
         system.add_account(parent_path='/', name='wallet', kind=account_type.asset)  
         # a placeholder for organizing transactions representing GAS payments
         system.add_account(parent_path='/incomes', name='gas', kind=account_type.income, is_placeholder=True)
-        
-    def save(self, *args, **kwargs):
-        # run only at instance creation-time 
-        if not self.pk:
-            self.setup_accounting() 
-        super(Supplier, self).save(*args, **kwargs)
         
     @property
     def uid(self):
@@ -428,12 +404,6 @@ class GASSupplierSolidalPact(models.Model):
         # Supplier-side
         supplier_system = self.supplier.subject.accounting_system
         supplier_system.add_account(parent_path='/incomes/gas', name=str(self.gas.name), kind=account_type.income)
-    
-    def save(self, *args, **kwargs):
-        # run only at instance creation-time 
-        if not self.pk:
-            self.setup_accounting() 
-        super(GASSupplierSolidalPact, self).save(*args, **kwargs)
 
 ## Orders
 # GAS -> Supplier   

@@ -26,7 +26,7 @@ from django.contrib.contenttypes import generic
 
 from accounting.consts import ACCOUNT_PATH_SEPARATOR
 from accounting.fields import CurrencyField
-from accounting.managers import AccountManager  
+from accounting.managers import AccountManager, TransactionManager
 from accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation
 
 from datetime import datetime
@@ -782,6 +782,8 @@ class Transaction(models.Model):
     # wheter this transaction has been confirmed by every involved subject
     is_confirmed = models.BooleanField(default=False)
     
+    objects = TransactionManager()
+    
     def __unicode__(self):
         return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}
     
@@ -868,6 +870,14 @@ class Transaction(models.Model):
         """   
         return self.entry_set.all()
     
+    @property
+    def references(self):
+        """
+        The set of model instances this transaction refers to.
+        """
+        instances = [reference.instance for reference in self.reference_set.all()]
+        return set(instances)
+    
     def confirm(self):
         """
         Set this transaction as CONFIRMED.
@@ -879,6 +889,40 @@ class Transaction(models.Model):
             self.save()
         else:
             raise InvalidAccountingOperation("This transaction had already been confirmed.")
+    
+    def add_reference(self, ref):
+        """
+        Take a model instance (``ref``) and add it to the set of references
+        for this transaction.
+        """
+        TransactionReference.objects.create(transaction=self, instance=ref)           
+    
+        
+    def add_references(self, refs):
+        """
+        Take an iterable of model instances (``refs``) and add them 
+        to the set of references for this transaction.
+        """
+        for ref in refs:
+            self.add_reference(ref)           
+            
+        
+class TransactionReference(models.Model):
+    """
+    A reference for a transaction.
+    
+    This relationship model allow to associate a given transaction instance 
+    to one or more (arbitrary) model instances.  This way, we can add context
+    information to transactions in a very general and flexible way, by specifying
+    a set of objects describing that context.  
+    """
+    transaction = models.ForeignKey(Transaction, related_name='reference_set')
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    instance = generic.GenericForeignKey(ct_field='content_type', fk_field='object_id')
+    
+    class Meta:
+        unique_together = ('transaction', 'content_type', 'object_id')
         
 
 class LedgerEntry(models.Model):

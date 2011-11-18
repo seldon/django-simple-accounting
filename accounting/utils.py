@@ -429,7 +429,8 @@ def register_simple_transaction(source_account, target_account, amount, descript
 
 def update_transaction(transaction, **kwargs):
     """
-    Take an existing transaction and update it as specified by passed arguments.
+    Take an existing transaction and update it as specified by passed arguments; 
+    return the updated transaction.
     
     Conceptually, updating a transaction is a 3 step process:
     1) delete every ledger entry associated with the original transaction 
@@ -457,14 +458,14 @@ def update_transaction(transaction, **kwargs):
         new_params['amount'] = transaction.source.amount
         # apply requested changes
         new_params.update(kwargs)
-        register_simple_transaction(**new_params)
+        transaction = register_simple_transaction(**new_params)
     # internal transactions
     elif transaction.is_internal:
         new_params['source'] = transaction.source 
         new_params['targets'] = [split.target for split in orig_splits]
         # apply requested changes
         new_params.update(kwargs)
-        register_internal_transaction(**new_params)
+        transaction = register_internal_transaction(**new_params)
     # non-split transactions
     elif not transaction.is_split:
         new_params['source_account'] = transaction.source.account 
@@ -474,12 +475,13 @@ def update_transaction(transaction, **kwargs):
         new_params['amount'] = transaction.source.amount
         # apply requested changes
         new_params.update(kwargs)
-        register_transaction(**new_params)
+        transaction = register_transaction(**new_params)
     # general transactions
     else:
         new_params['source'] = transaction.source
         new_params['splits'] = orig_splits 
         # apply requested changes
         new_params.update(kwargs)
-        register_split_transaction(**new_params)      
-        
+        transaction = register_split_transaction(**new_params)
+              
+    return transaction

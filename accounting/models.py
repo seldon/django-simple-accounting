@@ -672,6 +672,8 @@ class Split(models.Model):
     entry_point = models.ForeignKey(Account, null=True, blank=True, related_name='entry_points_set')
     exit_point = models.ForeignKey(Account, null=True, blank=True, related_name='exit_points_set')
     target = models.ForeignKey(CashFlow)
+    # an optional description for this split (only useful for split transactions)
+    description = models.CharField(max_length=512, help_text=_("Split memo"), blank=True)
     
     @property
     def is_internal(self):
@@ -694,6 +696,15 @@ class Split(models.Model):
         The amount of money flowing through this split.
         """
         return - self.target.amount
+    
+    @property
+    def accounts(self):
+        """
+        The list of accounts involved by this split 
+        (i.e. [<exit_point>, <entry point>, <target account>]).
+        """
+        accounts = [self.exit_point, self.entry_point, self.target.account]
+        return accounts
 
     # model-level custom validation goes here
     def clean(self):
@@ -965,8 +976,31 @@ class LedgerEntry(models.Model):
         return self.transaction.date
     
     @property
+    def split(self):
+        """
+        The transaction split involving the account this ledger entry is associated to.
+        
+        If this entry's account is the source account for the transaction, return ``AttributeError``
+        (since source accounts don't belong to any split by definition).  
+        """
+        if not self.transaction.is_split:
+            return self.transaction.splits[0]
+        elif self.account == self.transaction.source.account:
+            raise AttributeError("Source accounts for transactions don't belong to any split")
+        else:            
+            for split in self.transaction.splits:
+                if self.account in split.accounts: return split
+    
+    @property
     def description(self):
-        return self.transaction.description
+        # if a transaction is not split, or if the account this ledger refers to 
+        # is the source account for that transaction, this ledger entry can display
+        # the same description as the transaction it refers to;
+        # otherwise, use the description of the corresponding split.
+        if not self.transaction.is_split or (self.account == self.transaction.source.account):
+            return self.transaction.description
+        else:
+            return self.split.description
     
     @property
     def issuer(self):

@@ -55,9 +55,6 @@ class Subject(models.Model):
     object_id = models.PositiveIntegerField()
     instance = generic.GenericForeignKey(ct_field='content_type', fk_field='object_id')
     
-    def __unicode__(self):
-        return _(u"Economic subject: %(instance)s") % {'instance':self.instance}
-    
     @property
     def accounting_system(self):
         """
@@ -68,6 +65,9 @@ class Subject(models.Model):
             return self.account_system
         except AccountSystem.DoesNotExist:
             raise AttributeError(_(u"No accounting system has been setup for this subject %s") % self)
+    
+    def __unicode__(self):
+        return _(u"Economic subject: %(instance)s") % {'instance':self.instance}
         
     def init_accounting_system(self):
         """
@@ -80,6 +80,7 @@ class Subject(models.Model):
         # create root accounts for incomes and expenses
         system.add_account(parent_path=system.root.path, name='incomes', kind=account_type.income)
         system.add_account(parent_path=system.root.path, name='expenses', kind=account_type.expense)
+        
 
 class SubjectDescriptor(object):
     """
@@ -128,7 +129,6 @@ def economic_subject(cls):
     you can place the relevant logic within a ``.setup_accounting()`` (instance) method,
     that will be automagically called when the model is instantiated.
     """
-    
     # a registry holding subjective_model classes
     from accounting import subjective_models
     
@@ -195,7 +195,6 @@ class AccountType(models.Model):
     (e.g. *bank account*, *cash*, *credit card*, etc.) with domain-specific semantics.
     """
     
-    
     BASIC_ACCOUNT_TYPES = ('ROOT', 'INCOME', 'EXPENSE', 'ASSET', 'LIABILITY')
     
     (ROOT, INCOME, EXPENSE, ASSET, LIABILITY) = range(0,5) 
@@ -210,18 +209,6 @@ class AccountType(models.Model):
          
     name = models.CharField(max_length=50, unique=True)
     base_type = models.CharField(max_length=20, choices=BASIC_ACCOUNT_TYPES_CHOICES)
-    
-    def normalize_account_type_name(self):
-        """
-        Normalize the name of an account type before saving it to the DB.
-        """
-        # make sure that names of account types are uppercase strings
-        self.name = self.name.upper()
-    
-    def save(self, *args, **kwargs):
-        self.normalize_account_type_name()
-        super(AccountType, self).save(*args, **kwargs)  
-  
     
     @property
     def is_stock(self):
@@ -245,7 +232,18 @@ class AccountType(models.Model):
         Return the queryset of all accounts having this type.
         """
         return self.account_set.all()
-
+        
+    def save(self, *args, **kwargs):
+        self.normalize_account_type_name()
+        super(AccountType, self).save(*args, **kwargs)
+        
+    def normalize_account_type_name(self):
+        """
+        Normalize the name of an account type before saving it to the DB.
+        """
+        # make sure that names of account types are uppercase strings
+        self.name = self.name.upper()      
+  
 
 class BasicAccountTypeDict(dict):
     """
@@ -316,6 +314,7 @@ class AccountSystem(models.Model):
     """
     # the subject operating this accounting system
     owner = models.OneToOneField(Subject, related_name='account_system')
+
     # the root account of this system
     @property
     def root(self):
@@ -326,7 +325,28 @@ class AccountSystem(models.Model):
             # if we arrived here, no root account was created for this accounting system !
             raise MalformedAccountTree(_(u"No root account was created for this account system !\n %s") % self)
         return self._root
-        
+    
+    @property
+    def accounts(self):
+        """
+        Return the queryset of accounts belonging to this system.
+        """
+        return self.account_set.all()  
+    
+    @property
+    def total_amount(self):
+        """
+        Calculate the total amount of money stored in this accounting system,
+        as an algebraic sum of the balances of all stock-like accounts 
+        belonging to it. 
+        """
+        total_amount = 0
+        for account in self.accounts:
+            # skip flux-like accounts, since they don't actually contain money
+            if account.is_stock:
+                total_amount += account.balance
+        return total_amount
+
     def __unicode__(self):
         return _(u"Accounting system for %(subject)s" % {'subject': self.owner})
     
@@ -389,27 +409,7 @@ class AccountSystem(models.Model):
         """
         self.add_account(parent_path='', name='', kind=account_type.root, is_placeholder=True)
         
-    @property
-    def accounts(self):
-        """
-        Return the queryset of accounts belonging to this system.
-        """
-        return self.account_set.all()  
-    
-    @property
-    def total_amount(self):
-        """
-        Calculate the total amount of money stored in this accounting system,
-        as an algebraic sum of the balances of all stock-like accounts 
-        belonging to it. 
-        """
-        total_amount = 0
-        for account in self.accounts:
-            # skip flux-like accounts, since they don't actually contain money
-            if account.is_stock:
-                total_amount += account.balance
-        return total_amount
-       
+           
 class Account(models.Model):
     """
     An account within a double-entry accounting system (i.e., an ``AccountSystem`` model instance).
@@ -431,54 +431,8 @@ class Account(models.Model):
     name = models.CharField(max_length=128, blank=True)
     kind = models.ForeignKey(AccountType, related_name='account_set')
     is_placeholder = models.BooleanField(default=False)
+    
     objects = AccountManager()
-    
-    def __unicode__(self):
-        return _("Account %(path)s owned by %(subject)s") % {'path':self.path, 'subject':self.owner}
-    
-    # model-level custom validation goes here
-    def clean(self):
-        ## check that this account belongs to the same accounting system of its parent (if any)
-        if self.parent:
-            try:
-                assert self.system == self.parent.system
-            except AssertionError:
-                raise ValidationError(_(u"This account and its parent belong to different accounting systems."))
-        ## check that stock-like accounts (assets, liabilities) are not mixed with flux-like ones (incomes, expenses)
-        # a stock-like account's parent must be a stock-like account (or the root account) 
-        if self.is_stock:
-            try:
-                assert self.parent.is_stock or self.parent.is_root  
-            except AssertionError:
-                raise ValidationError(_(u"A stock-like account's parent must be a stock-like account (or the root account)"))
-        # a flux-like account's parent must be a flux-like account (or the root account) 
-        if self.is_flux:
-            try:
-                assert self.parent.is_flux or self.parent.is_root  
-            except AssertionError:
-                raise ValidationError(_(u"A flux-like account's parent must be a flux-like account (or the root account)"))      
-        ## check that root accounts (and only those) have ``name=''``
-        if self.is_root:
-            try:
-                assert self.name == ''  
-            except AssertionError:
-                raise ValidationError(_(u"A root account's name must be set to the empty string"))
-        
-        if self.name == '':
-            try:
-                assert self.is_root  
-            except AssertionError:
-                raise ValidationError(_(u"A root account's name must be set to the empty string"))      
-              
-        ## account names can't contain ``ACCOUNT_PATH_SEPARATOR``
-        if ACCOUNT_PATH_SEPARATOR in self.name:
-            raise ValidationError(_(u"Account names can't contain %s" % ACCOUNT_PATH_SEPARATOR))
-                
-    def save(self, *args, **kwargs):
-        # perform model validation
-        self.full_clean()
-        super(Account, self).save(*args, **kwargs) 
-        
     
     @property
     def base_type(self):
@@ -486,8 +440,7 @@ class Account(models.Model):
         Return the basic type of this account (i.e. INCOME, EXPENSE, ASSET or LIABILITY).
         """
         return self.kind.base_type
-     
-        
+         
     @property
     def is_stock(self):
         """
@@ -546,7 +499,60 @@ class Account(models.Model):
         """
         The root account of the accounting system this account belongs to.
         """
-        return self.system.root        
+        return self.system.root
+    
+    @property
+    def ledger_entries(self):
+        """
+        Return the queryset of entries written to the ledger associated with this account.
+        """
+        return self.entry_set.all().order_by('-transaction__date',)
+    
+    def __unicode__(self):
+        return _("Account %(path)s owned by %(subject)s") % {'path':self.path, 'subject':self.owner}
+    
+    # model-level custom validation goes here
+    def clean(self):
+        ## check that this account belongs to the same accounting system of its parent (if any)
+        if self.parent:
+            try:
+                assert self.system == self.parent.system
+            except AssertionError:
+                raise ValidationError(_(u"This account and its parent belong to different accounting systems."))
+        ## check that stock-like accounts (assets, liabilities) are not mixed with flux-like ones (incomes, expenses)
+        # a stock-like account's parent must be a stock-like account (or the root account) 
+        if self.is_stock:
+            try:
+                assert self.parent.is_stock or self.parent.is_root  
+            except AssertionError:
+                raise ValidationError(_(u"A stock-like account's parent must be a stock-like account (or the root account)"))
+        # a flux-like account's parent must be a flux-like account (or the root account) 
+        if self.is_flux:
+            try:
+                assert self.parent.is_flux or self.parent.is_root  
+            except AssertionError:
+                raise ValidationError(_(u"A flux-like account's parent must be a flux-like account (or the root account)"))      
+        ## check that root accounts (and only those) have ``name=''``
+        if self.is_root:
+            try:
+                assert self.name == ''  
+            except AssertionError:
+                raise ValidationError(_(u"A root account's name must be set to the empty string"))
+        
+        if self.name == '':
+            try:
+                assert self.is_root  
+            except AssertionError:
+                raise ValidationError(_(u"A root account's name must be set to the empty string"))      
+              
+        ## account names can't contain ``ACCOUNT_PATH_SEPARATOR``
+        if ACCOUNT_PATH_SEPARATOR in self.name:
+            raise ValidationError(_(u"Account names can't contain %s" % ACCOUNT_PATH_SEPARATOR))
+                
+    def save(self, *args, **kwargs):
+        # perform model validation
+        self.full_clean()
+        super(Account, self).save(*args, **kwargs)
     
     def get_child(self, name):
         """
@@ -579,15 +585,8 @@ class Account(models.Model):
             account.parent = self
             account.save()
         else:
-            raise ValueError("A child account already exists with name %s" % account.name)
+            raise ValueError("A child account already exists with name %s" % account.name)  
     
-    @property
-    def ledger_entries(self):
-        """
-        Return the queryset of entries written to the ledger associated with this account.
-        """
-        return self.entry_set.all().order_by('-transaction__date',)
-          
     class Meta:
         unique_together = ('parent', 'name')
         
@@ -613,17 +612,6 @@ class CashFlow(models.Model):
     # how much money flows from/to that account
     amount = CurrencyField()
     
-    # model-level custom validation goes here
-    def clean(self):
-        ## check that ``account`` is stock-like
-        if not self.is_stock:
-            raise ValidationError(_(u"Only stock-like accounts may represent cash-flows."))     
-    
-    def save(self, *args, **kwargs):
-        # perform model validation
-        self.full_clean()
-        super(CashFlow, self).save(*args, **kwargs)  
-     
     @property
     def is_incoming(self):
         return self.amount < 0 
@@ -635,6 +623,18 @@ class CashFlow(models.Model):
     @property
     def system(self):
         return self.account.system
+    
+    # model-level custom validation goes here
+    def clean(self):
+        ## check that ``account`` is stock-like
+        if not self.is_stock:
+            raise ValidationError(_(u"Only stock-like accounts may represent cash-flows."))     
+    
+    def save(self, *args, **kwargs):
+        # perform model validation
+        self.full_clean()
+        super(CashFlow, self).save(*args, **kwargs)  
+     
 
 class Split(models.Model):    
     """
@@ -673,6 +673,28 @@ class Split(models.Model):
     exit_point = models.ForeignKey(Account, null=True, blank=True, related_name='exit_points_set')
     target = models.ForeignKey(CashFlow)
     
+    @property
+    def is_internal(self):
+        """
+        If this split is contained within a single accounting system, 
+        return ``True``, ``False`` otherwise.
+        """
+        return self.exit_point == None 
+
+    @property
+    def target_system(self):
+        """
+        The accounting system where this split ends.
+        """
+        return self.entry_point.system
+    
+    @property
+    def amount(self):
+        """
+        The amount of money flowing through this split.
+        """
+        return - self.target.amount
+
     # model-level custom validation goes here
     def clean(self):
         ## if ``exit point`` is null, so must be ``entry_point``
@@ -702,29 +724,7 @@ class Split(models.Model):
         self.full_clean()
         super(Split, self).save(*args, **kwargs)
            
-    @property
-    def is_internal(self):
-        """
-        If this split is contained within a single accounting system, 
-        return ``True``, ``False`` otherwise.
-        """
-        return self.exit_point == None 
-
-    @property
-    def target_system(self):
-        """
-        The accounting system where this split ends.
-        """
-        return self.entry_point.system
-    
-    @property
-    def amount(self):
-        """
-        The amount of money flowing through this split.
-        """
-        return - self.target.amount
-    
-          
+              
 class Transaction(models.Model):
     """
     A transaction between accounts.
@@ -784,50 +784,6 @@ class Transaction(models.Model):
     
     objects = TransactionManager()
     
-    def __unicode__(self):
-        return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}
-    
-    # model-level custom validation goes here
-    def clean(self):
-        ## check that the *law of conservation of money* is satisfied
-        flows = [self.source]
-        for split in self.splits:
-            flows.append(split.target)
-        # the algebraic sum of flows must be 0
-        try:
-            assert sum([flow.amount for flow in flows]) == 0
-        except AssertionError:
-            raise ValidationError(_(u"The law of conservation of money is not satisfied for this transaction"))    
-        ## check that exit-points belong to the same accounting system as the source account
-        for split in self.splits:
-            try:
-                assert split.exit_point.system == self.source.system
-            except AssertionError:
-                raise ValidationError(_(u"Exit-points must belong to the same accounting system as the source account"))        
-        ## for internal splits, check that target accounts belong 
-        ## to the same accounting system as the source account
-        if self.is_internal:
-            for split in self.splits:
-                try:
-                    assert split.target.system == self.source.system
-                except AssertionError:
-                    msg = _(u"For internal splits, target accounts must belong to the same accounting system as the source account")
-                    raise ValidationError(msg)
-        ## check that no account involved in this transaction is a placeholder one
-        involved_accounts = [self.source.account]
-        for split in self.splits:
-            involved_accounts += [split.exit_point, split.entry_point, split.target.account]
-        for account in involved_accounts:
-            try:
-                assert not account.placeholder 
-            except AssertionError:
-                raise ValidationError(_(u"Placeholder accounts can't directly contain transactions, only sub-accounts"))
-        
-    def save(self, *args, **kwargs):
-        # perform model validation
-        self.full_clean()
-        super(Transaction, self).save(*args, **kwargs)
-        
     @property
     def splits(self):
         return self.split_set.all()
@@ -877,7 +833,51 @@ class Transaction(models.Model):
         """
         instances = [reference.instance for reference in self.reference_set.all()]
         return set(instances)
+
+    def __unicode__(self):
+        return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}
     
+    # model-level custom validation goes here
+    def clean(self):
+        ## check that the *law of conservation of money* is satisfied
+        flows = [self.source]
+        for split in self.splits:
+            flows.append(split.target)
+        # the algebraic sum of flows must be 0
+        try:
+            assert sum([flow.amount for flow in flows]) == 0
+        except AssertionError:
+            raise ValidationError(_(u"The law of conservation of money is not satisfied for this transaction"))    
+        ## check that exit-points belong to the same accounting system as the source account
+        for split in self.splits:
+            try:
+                assert split.exit_point.system == self.source.system
+            except AssertionError:
+                raise ValidationError(_(u"Exit-points must belong to the same accounting system as the source account"))        
+        ## for internal splits, check that target accounts belong 
+        ## to the same accounting system as the source account
+        if self.is_internal:
+            for split in self.splits:
+                try:
+                    assert split.target.system == self.source.system
+                except AssertionError:
+                    msg = _(u"For internal splits, target accounts must belong to the same accounting system as the source account")
+                    raise ValidationError(msg)
+        ## check that no account involved in this transaction is a placeholder one
+        involved_accounts = [self.source.account]
+        for split in self.splits:
+            involved_accounts += [split.exit_point, split.entry_point, split.target.account]
+        for account in involved_accounts:
+            try:
+                assert not account.placeholder 
+            except AssertionError:
+                raise ValidationError(_(u"Placeholder accounts can't directly contain transactions, only sub-accounts"))
+        
+    def save(self, *args, **kwargs):
+        # perform model validation
+        self.full_clean()
+        super(Transaction, self).save(*args, **kwargs)
+            
     def confirm(self):
         """
         Set this transaction as CONFIRMED.
@@ -896,8 +896,7 @@ class Transaction(models.Model):
         for this transaction.
         """
         TransactionReference.objects.create(transaction=self, instance=ref)           
-    
-        
+     
     def add_references(self, refs):
         """
         Take an iterable of model instances (``refs``) and add them 
@@ -960,28 +959,7 @@ class LedgerEntry(models.Model):
     entry_id = models.PositiveIntegerField(null=True, blank=True, editable=False)
     # the amount of money flowing 
     amount = CurrencyField()
-      
-    def next_entry_id_for_ledger(self):
-        """
-        Get the first available integer to be used as an ID for this entry in the ledger.
-        """
-        existing_entries = self.account.ledger_entries
-        next_id = max([entry.id for entry in existing_entries]) + 1
-        return next_id
     
-    # model-level custom validation goes here
-    def clean(self): 
-        pass
-    
-    def save(self, *args, **kwargs):
-        # if this entry is saved to the DB for the first time,
-        # set its ID in the ledger to the first available value
-        if not self.pk:
-            self.entry_id = self.next_entry_id_for_ledger() 
-        # perform model validation
-        self.full_clean()
-        super(LedgerEntry, self).save(*args, **kwargs)
-        
     @property
     def date(self):
         return self.transaction.date
@@ -994,6 +972,27 @@ class LedgerEntry(models.Model):
     def issuer(self):
         return self.transaction.issuer    
 
+    # model-level custom validation goes here
+    def clean(self): 
+        pass
+    
+    def save(self, *args, **kwargs):
+        # if this entry is saved to the DB for the first time,
+        # set its ID in the ledger to the first available value
+        if not self.pk:
+            self.entry_id = self.next_entry_id_for_ledger() 
+        # perform model validation
+        self.full_clean()
+        super(LedgerEntry, self).save(*args, **kwargs)
+      
+    def next_entry_id_for_ledger(self):
+        """
+        Get the first available integer to be used as an ID for this entry in the ledger.
+        """
+        existing_entries = self.account.ledger_entries
+        next_id = max([entry.id for entry in existing_entries]) + 1
+        return next_id
+        
     
 class Invoice(models.Model):
     """
@@ -1029,16 +1028,16 @@ class Invoice(models.Model):
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     
-    def __unicode__(self):
-        return _("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s"\
-                 % {'issuer' : self.issuer, 'recipient' : self.recipient, 'issue_date' : self.issue_date} )
-    
     @property
     def total_amount(self):
         """Total amount for the invoice (including taxes)."""
         return self.net_amount + self.taxes  
-
-  
+    
+    def __unicode__(self):
+        return _("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s"\
+                 % {'issuer' : self.issuer, 'recipient' : self.recipient, 'issue_date' : self.issue_date} )
+    
+    
 class AccountingProxy(object):
     """
     This class is meant to be used as a proxy for accessing accounting-related functionality.
@@ -1103,7 +1102,8 @@ class AccountingProxy(object):
             invoice.status = Invoice.PAYMENT_CONFIRMED                      
         else: 
             # FIXME: provide a more informative error message
-            raise ValueError    
+            raise ValueError
+            
         
 class AccountingDescriptor(object):
     """

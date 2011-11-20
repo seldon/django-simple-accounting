@@ -354,6 +354,12 @@ class GASMember(models.Model):
         """
         return self.person.uid
 
+## Signals
+@receiver(post_save, sender=GASMember)
+def setup_gas_member_accounting(sender, instance, created, **kwargs):
+    if created:    
+        instance.setup_accounting()
+
         
 ## Suppliers     
 @economic_subject              
@@ -403,6 +409,13 @@ class GASSupplierSolidalPact(models.Model):
         # Supplier-side
         supplier_system = self.supplier.subject.accounting_system
         supplier_system.add_account(parent_path='/incomes/gas', name=self.gas.uid, kind=account_type.income)
+
+## Signals
+@receiver(post_save, sender=GASSupplierSolidalPact)
+def setup_pact_accounting(sender, instance, created, **kwargs):
+    if created:    
+        instance.setup_accounting()
+
 
 ## Orders
 # GAS -> Supplier   

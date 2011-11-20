@@ -152,10 +152,6 @@ def economic_subject(cls):
         if created:
             ct = ContentType.objects.get_for_model(sender)
             Subject.objects.create(content_type=ct, object_id=instance.pk)
-            ## setup accounting-related things for this subjective instance
-            # call the ``.setup_accounting()`` method, if any
-            if getattr(instance, 'setup_accounting', None):     
-                instance.setup_accounting()
             
     # clean-up dangling subjects after a subjective model instance is deleted from the DB
     @receiver(post_delete, sender=model, weak=False)
@@ -169,6 +165,16 @@ def economic_subject(cls):
     
     return model
 
+## Signals
+# setup accounting-related things for *every* model
+# implementing a ``.setup_accounting()`` method.
+@receiver(post_save)
+def setup_accounting(sender, instance, created, **kwargs):
+    if created:
+    # call the ``.setup_accounting()`` method on the sender model, if defined
+        if getattr(instance, 'setup_accounting', None):     
+            instance.setup_accounting()
+            
 
 class AccountType(models.Model):
     """

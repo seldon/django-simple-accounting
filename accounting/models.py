@@ -806,7 +806,7 @@ class Transaction(models.Model):
         ``False`` otherwise.
         """
         # a transaction is split iff it comprises more than one split
-        return len(self.components) > 1
+        return len(self.splits) > 1
     
     @property
     def is_internal(self):

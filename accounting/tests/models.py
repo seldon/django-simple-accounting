@@ -48,21 +48,24 @@ class PersonAccountingProxy(AccountingProxy):
         Do a recharge of amount ``amount`` to the corresponding member account 
         in the GAS ``gas``. 
         
-        If this person is not a member of GAS ``gas``, 
+        If this person is not a member of GAS ``gas``, or if ``amount`` is a negative number, 
         a ``MalformedTransaction`` exception is raised.
         """
         person = self.subject.instance
-        if not person.is_member(gas):
+        if amount < 0:
+            raise MalformedTransaction("Amount of a recharge must be non-negative")
+        elif not person.is_member(gas):
             raise MalformedTransaction("A person can't make an account recharge for a GAS that (s)he is not member of")
-        source_account = self.system['/wallet']
-        exit_point = self.system['/expenses/gas/' + gas.uid + '/recharges']
-        entry_point = gas.system['/incomes/recharges']
-        target_account = gas.system['/members/' + person.uid]
-        description = "GAS member account recharge"
-        issuer = person 
-        transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='RECHARGE')
-        transaction.add_references([person, gas])
-        
+        else:
+            source_account = self.system['/wallet']
+            exit_point = self.system['/expenses/gas/' + gas.uid + '/recharges']
+            entry_point = gas.system['/incomes/recharges']
+            target_account = gas.system['/members/' + person.uid]
+            description = "GAS member account recharge"
+            issuer = person 
+            transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='RECHARGE')
+            transaction.add_references([person, gas])
+            
 
 class GasAccountingProxy(AccountingProxy):
     """
@@ -79,7 +82,7 @@ class GasAccountingProxy(AccountingProxy):
         """
         Transfer a given (positive) amount ``amount`` of money from the GAS's cash
         to a supplier for which a solidal pact is currently active.
-<        
+        
         If ``amount`` is negative, a ``MalformedTransaction`` exception is raised
         (supplier-to-GAS money transfers should be treated as "refunds").
         
@@ -107,11 +110,15 @@ class GasAccountingProxy(AccountingProxy):
         
         If this operation would make that member's account negative, raise a warning.
         
+        If ``member`` is not a member of this GAS, a ``MalformedTransaction`` exception is raised.
+        
         References for this transaction may be passed as the ``refs`` argument
         (e.g. a list of GAS member orders this withdrawal is related to).
         """
         # TODO: if this operation would make member's account negative, raise a warning
         gas = self.subject.instance
+        if not member.person.is_member(gas):
+            raise MalformedTransaction("A GAS can withdraw only from its members' accounts")
         source_account = self.system['/members/' + member.uid]
         target_account = self.system['/cash']
         description = "Withdrawal from member %(member)s account by GAS %(gas)s" % {'gas': gas, 'member': member,}
@@ -126,7 +133,7 @@ class GasAccountingProxy(AccountingProxy):
         
         Specifically, such registration is a two-step process:
         1. First, the GAS withdraws from each member's account an amount of money corresponding
-           to the price of products (s)he bought during this order 
+           to the total cost of products (s)he bought during this order 
            (price & quantity are as recorded by the invoice!)
         2. Then, the GAS collects this money amounts and transfers them to the supplier's account 
         
@@ -194,6 +201,9 @@ class SupplierAccountingProxy(AccountingProxy):
     def confirm_invoice_payment(self, invoice):
         """
         Confirm that an invoice issued by this supplier has been actually payed.
+        
+        If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued by another subject,
+        raise ``ValueError``.
         """
         self.set_invoice_payed(invoice)
     

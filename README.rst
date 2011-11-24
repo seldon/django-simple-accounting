@@ -11,7 +11,7 @@ Custom settings
 ===============
 
 SUBJECTIVE_MODELS
-----------
+-----------------
 :Name: SUBJECTIVE_MODELS
 :Type: list/tuple of strings (they should be *model labels* of the form ``<app label>.<Model name>``)
 :Default: ``()``
@@ -24,7 +24,7 @@ SUBJECTIVE_MODELS
     When a new instance of a subjective model is created, an associated ``Subject`` instance pointing to it is automatically created.
 
 ACCOUNT_TYPES
-----------
+-------------
 :Name: ACCOUNT_TYPES
 :Type: list/tuple of strings (by convention, they should be uppercase)
 :Default: ``()``
@@ -34,6 +34,7 @@ ACCOUNT_TYPES
     This setting is used as the set of choices for the ``kind`` field of the ``Account`` model.
 
     Standard account types include:
+
     * INCOME
     * EXPENSES
     * ASSET
@@ -42,7 +43,7 @@ ACCOUNT_TYPES
 
 
 TRANSACTION_TYPES
-----------
+-----------------
 :Name: TRANSACTION_TYPES
 :Type: list/tuple of strings (by convention, they should be uppercase)
 :Default: ``()``

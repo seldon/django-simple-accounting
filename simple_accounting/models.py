@@ -24,10 +24,10 @@ from django.core.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
-from accounting.consts import ACCOUNT_PATH_SEPARATOR
-from accounting.fields import CurrencyField
-from accounting.managers import AccountManager, TransactionManager
-from accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation
+from simple_accounting.consts import ACCOUNT_PATH_SEPARATOR
+from simple_accounting.fields import CurrencyField
+from simple_accounting.managers import AccountManager, TransactionManager
+from simple_accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation
 
 from datetime import datetime
 
@@ -107,7 +107,7 @@ def economic_subject(cls):
     Say that you have a model ``Foo`` representing an economic subject in a given application domain: 
     in order to mark it as *subjective*, just use the following syntax:
     
-        from accounting.models import economic_subject 
+        from simple_accounting.models import economic_subject 
          
          @economic_subject
          class Foo(models.Model):
@@ -130,7 +130,7 @@ def economic_subject(cls):
     that will be automagically called when the model is instantiated.
     """
     # a registry holding subjective_model classes
-    from accounting import subjective_models
+    from simple_accounting import subjective_models
     
     model = cls
     # if this model has already been registered, skip further processing 
@@ -374,7 +374,7 @@ class AccountSystem(models.Model):
         Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names.            
         """
         
-        from accounting.utils import get_account_from_path
+        from simple_accounting.utils import get_account_from_path
         account = get_account_from_path(path, self.root)
         return account
     
@@ -387,7 +387,7 @@ class AccountSystem(models.Model):
         or ``account`` is not a valid ``Account`` instance, or the parent account has already a child named 
         as the given account instance, raise ``ValueError``. 
         """ 
-        from accounting.utils import get_account_from_path
+        from simple_accounting.utils import get_account_from_path
         parent_account = get_account_from_path(path, self.root)
         parent_account.add_child(account)   
     
@@ -1157,7 +1157,7 @@ class AccountingDescriptor(object):
     Say that you have a model ``Foo`` representing an economic subject in a given application domain: 
     in order to enable the accounting API for it, just use the following syntax:
     
-        from accounting.models import economic_subject, AccountingDescriptor 
+        from simple_accounting.models import economic_subject, AccountingDescriptor 
          
          @economic_subject
          class Foo(models.Model):
@@ -1186,8 +1186,8 @@ class AccountingDescriptor(object):
     If needed, you can also customize the proxy class implementing the accounting API: 
     just pass it as an argument when instantiating the descriptor:
         
-        from accounting.models import economic_subject, AccountingDescriptor
-        from accounting.models import AccountingProxy
+        from simple_accounting.models import economic_subject, AccountingDescriptor
+        from simple_accounting.models import AccountingProxy
         
         class MyProxyClass(AccountingProxy)
             # override/customize methods as needed

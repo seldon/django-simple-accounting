@@ -8,7 +8,7 @@ test_engine = os.environ.get("ACCOUNTING_TEST_ENGINE", "django.db.backends.sqlit
 DATABASES = {
     'default': {
         'ENGINE': test_engine,
-        'NAME': os.environ.get("ACCOUNTING_DATABASE_NAME", "accounting_test"),
+        'NAME': os.environ.get("ACCOUNTING_DATABASE_NAME", "simple_accounting_test"),
         'USER': os.environ.get("ACCOUNTING_DATABASE_USER", ""),
         'PASSWORD': os.environ.get("ACCOUNTING_DATABASE_PASSWORD", ""),
         'HOST': os.environ.get("ACCOUNTING_DATABASE_HOST", "localhost"),
@@ -16,7 +16,7 @@ DATABASES = {
 }
 
 if test_engine == "django.db.backends.sqlite3":
-    DATABASES['default']['NAME'] = os.path.join(DIRNAME, 'accounting_test.db')
+    DATABASES['default']['NAME'] = os.path.join(DIRNAME, 'simple_accounting_test.db')
     DATABASES['default']['HOST'] = ""
 elif test_engine == "django.db.backends.mysql":
     DATABASES['default']['PORT'] = os.environ.get("ACCOUNTING_DATABASE_PORT", 3306)
@@ -26,8 +26,8 @@ elif test_engine == "django.db.backends.postgresql_psycopg2":
 # list only Django applications required to setup a working test environment
 INSTALLED_APPS = (
     # other dependencies go here 
-    'accounting',
-    'accounting.tests',    
+    'simple_accounting',
+    'simple_accounting.tests',    
 )
 
 # list only the middleware classes required to setup a working test environment
@@ -38,7 +38,7 @@ MIDDLEWARE_CLASSES = (
 
 ) 
 
-ROOT_URLCONF = 'accounting.tests.urls'
+ROOT_URLCONF = 'simple_accounting.tests.urls'
 SITE_ID = 1
 
 # other required settings for a working test environment

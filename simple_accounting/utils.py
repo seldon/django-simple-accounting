@@ -16,10 +16,10 @@
 
 from django.core.exceptions import ValidationError
 
-from accounting.consts import ACCOUNT_PATH_SEPARATOR
-from accounting.models import Transaction, CashFlow, Split, LedgerEntry
-from accounting.models import AccountType
-from accounting.exceptions import MalformedTransaction
+from simple_accounting.consts import ACCOUNT_PATH_SEPARATOR
+from simple_accounting.models import Transaction, CashFlow, Split, LedgerEntry
+from simple_accounting.models import AccountType
+from simple_accounting.exceptions import MalformedTransaction
 
 def _validate_account_path(path):
     if not path.startswith(ACCOUNT_PATH_SEPARATOR):

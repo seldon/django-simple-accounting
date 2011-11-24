@@ -16,7 +16,7 @@
 
 from django.contrib import admin
 
-from accounting.models import Account, Transaction, Invoice
+from simple_accounting.models import Account, Transaction, Invoice
 
 admin.site.register(Account)
 admin.site.register(Transaction)

@@ -14,7 +14,7 @@ setup(
     author="Lorenzo Franceschini",
     author_email="lorenzo.franceschini@informaetica.it",
     url = "https://github.com/seldon/django-simple-accounting",
-    packages = ["accounting"],
+    packages = ["simple_accounting"],
     classifiers = ["Development Status :: 3 - Alpha",
                    "Environment :: Web Environment",
                    "Framework :: Django",

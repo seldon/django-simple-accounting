@@ -16,8 +16,8 @@
 
 from django.db.models.signals import post_syncdb
 
-import accounting.models
-from accounting.models import AccountType
+import simple_accounting.models
+from simple_accounting.models import AccountType
 
 def create_basic_account_types(sender, app, created_models, verbosity, interactive, **kwargs):
     # execute IFF the DB table for the ``AccountType`` model has just been created
@@ -29,4 +29,4 @@ def create_basic_account_types(sender, app, created_models, verbosity, interacti
         AccountType.objects.create(name='ASSET', base_type=AccountType.ASSET)
         AccountType.objects.create(name='LIABILITY', base_type=AccountType.LIABILITY)    
 
-post_syncdb.connect(create_basic_account_types, sender=accounting.models)
+post_syncdb.connect(create_basic_account_types, sender=simple_accounting.models)

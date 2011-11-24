@@ -16,7 +16,7 @@
 
 from django.db import models
 
-from accounting.lib import queryset_from_iterable 
+from simple_accounting.lib import queryset_from_iterable 
 
 
 class AccountManager(models.Manager):
@@ -38,7 +38,7 @@ class TransactionManager(models.Manager):
         If no transaction satisfying this condition exists, return the empty queryset.
         """
         from django.contrib.contenttypes.models import ContentType
-        from accounting.models import TransactionReference
+        from simple_accounting.models import TransactionReference
         # FIXME: refine implementation
         qs = self.get_empty_query_set()
         transactions = set(self.get_query_set())

@@ -214,7 +214,7 @@ class AccountType(models.Model):
     ) 
          
     name = models.CharField(max_length=50, unique=True)
-    base_type = models.CharField(max_length=20, choices=BASIC_ACCOUNT_TYPES_CHOICES)
+    base_type = models.IntegerField(choices=BASIC_ACCOUNT_TYPES_CHOICES)
     
     @property
     def is_stock(self):
@@ -1064,7 +1064,7 @@ class Invoice(models.Model):
     due_date = models.DateTimeField()
     # current status of this invoice
     # TODO: implement full-fledged workflow management 
-    status = models.CharField(max_length=20, choices=INVOICE_STATES_CHOICES)
+    status = models.IntegerField(choices=INVOICE_STATES_CHOICES)
     # FIXME: implement a more granular storage pattern
     document = models.FileField(upload_to='/invoices')
     

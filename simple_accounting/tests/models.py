@@ -438,7 +438,7 @@ class GASSupplierOrder(models.Model):
     )
     pact = models.ForeignKey(GASSupplierSolidalPact, related_name='order_set')
     # workflow management
-    status = models.CharField(max_length=20, choices=SUPPLIER_ORDER_STATUS_CHOICES)
+    status = models.IntegerField(choices=SUPPLIER_ORDER_STATUS_CHOICES)
     invoice = models.ForeignKey(Invoice, null=True, blank=True)
     
     @property
@@ -513,7 +513,7 @@ class GASMemberOrder(models.Model):
     # how many Product units were withdrawn by the GAS member 
     withdrawn_amount = models.PositiveIntegerField()
     # workflow management
-    status = models.CharField(max_length=20, choices=MEMBER_ORDER_STATUS_CHOICES)
+    status = models.IntegerField(choices=MEMBER_ORDER_STATUS_CHOICES)
     
     @property
     def supplier_order(self):

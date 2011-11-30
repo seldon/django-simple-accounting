@@ -384,8 +384,9 @@ class AccountSystem(models.Model):
         and an ``Account`` instance; add that account to the children of the account living at that path location.
           
         If the given path location is invalid (see ``__getitem__``'s docstring fo details), 
-        or ``account`` is not a valid ``Account`` instance, or the parent account has already a child named 
-        as the given account instance, raise ``ValueError``. 
+        or ``account`` is not a valid ``Account`` instance, raise ``ValueError`.
+        
+        If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``. 
         """ 
         from simple_accounting.utils import get_account_from_path
         parent_account = get_account_from_path(path, self.root)
@@ -406,12 +407,18 @@ class AccountSystem(models.Model):
             the type of the account to be added (as an ``AccountType`` model instance)
         ``is_placeholder``
             A boolean flag specifying if this account is to be considered a placeholder
+            
+        If the given path location is invalid (see ``__getitem__``'s docstring fo details), raise ``ValueError``.  
+        
+        If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``.
         """
         Account.objects.create(system=self, parent=self[parent_path], name=name, kind=kind, is_placeholder=is_placeholder)
     
     def add_root_account(self):
         """
         Create a root account for this system.
+        
+        If this accounting systems already has a root account, raise ``InvalidAccountingOperation``.
         """
         self.add_account(parent_path='', name='', kind=account_type.root, is_placeholder=True)
         
@@ -580,8 +587,9 @@ class Account(models.Model):
         """
         Add ``account`` to this account's children accounts.
           
-        If ``account`` is not a valid ``Account`` instance or this account already has  
-        a child account named as the given account instance, raise ``ValueError``. 
+        If ``account`` is not a valid ``Account`` instance raise ``ValueError`` 
+        
+        If this account already has a child account named as the given account instance, raise ``InvalidAccountingOperation``. 
         """
         if not isinstance(account, Account):
             raise ValueError("You can only add an ``Account`` instance as a child of another account")

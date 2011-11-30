@@ -232,6 +232,26 @@ class AccountSystemTreeNavigationTest(TestCase):
     def setUp(self):
         pass
     
+    def testGetAccountFromPathOK(self):
+        """Test normal behaviour of the ``.get_account_from_path()`` method"""
+        pass
+    
+    def testGetAccountFromPathEmptyPath(self):
+        """If given the empty path, ``.get_account_from_path()`` should return the root account"""
+        pass
+    
+    def testGetAccountFromPathFailIfMalformedPathString(self):
+        """If ``.get_account_from_path()`` is given a malformed path string, should raise ValueError"""
+        pass
+    
+    def testGetAccountFromPathFailIfNotExists(self):
+        """If no accounts exist at the given location, ``.get_account_from_path()`` should raise Account.DoesNotExist"""
+        pass
+    
+    def testGetAccountFromPathExtraSpaces(self):
+        """``.get_account_from_path()`` should ignore leading and trailing whitespaces"""
+        pass
+    
     def testAccessOK(self):
         """If a valid path string is given, return the account living at that location"""
         pass
@@ -645,3 +665,33 @@ class AccountingDescriptorTest(TestCase):
     def testSetFailIfInstance(self):  
         """Check that the ``accounting`` attribute is read-only"""
         pass
+
+
+class QuerySetFromIterableTest(TestCase):
+    """Check that the ``queryset_from_iterable()`` helper function works as advertised"""
+   
+    def setUp(self):
+        pass
+    
+    def testReturnValueIsQuerySet(self):
+        """``queryset_from_iterable`` should return a ``QuerySet`` instance """
+        pass
+    
+    def testOK(self):
+        """If arguments are valid, check that result is as expected"""
+        pass
+    
+    def testEmptyIterable(self):
+        """If the iterable is empty, return an ``EmptyQuerySet``"""
+        pass
+    
+    def testFailIfNotIterable(self):
+        """If argument is not iterable, raise TypeError"""
+        pass
+    
+    def testFailIfNotInstancesOfTheSameModel(self):
+        """If ``iterable`` contains an instance of the wrong model, raise TypeError"""
+        pass
+
+
+

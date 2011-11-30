@@ -16,48 +16,9 @@
 
 from django.core.exceptions import ValidationError
 
-from simple_accounting.consts import ACCOUNT_PATH_SEPARATOR
 from simple_accounting.models import Transaction, CashFlow, Split, LedgerEntry
 from simple_accounting.models import AccountType
 from simple_accounting.exceptions import MalformedTransaction
-
-def _validate_account_path(path):
-    if not path.startswith(ACCOUNT_PATH_SEPARATOR):
-        raise ValueError("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
-    elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > len(ACCOUNT_PATH_SEPARATOR):
-        raise ValueError("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
-    
-
-def get_account_from_path(path, root):
-    """
-    Take a path ``path`` in an account tree (as a string) and the root account (``root``) of that tree, 
-    and return the account living at that path location.
-        
-    If no account exists at that location, raise ``Account.DoesNotExist``.
-    
-    If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
-    raise ``ValueError``.
-    
-    Path string syntax 
-    ==================    
-    A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
-    *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
-    Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names
-    """
-    # TODO: Unit tests
-    # FIXME: refine implementation
-    path = path.strip() # path normalization
-    path_components = path.split(ACCOUNT_PATH_SEPARATOR)
-    if root.is_root: # corner case
-        _validate_account_path(path)
-        if path == ACCOUNT_PATH_SEPARATOR: # e.g. path == '/'
-            return root  
-        path_components = path_components[1:] # strip initial '' component
-    child = root.get_child(path_components[0])
-    if len(path_components) == 1: # end recursion
-        return child
-    subpath = ACCOUNT_PATH_SEPARATOR.join(path_components[1:]) 
-    get_account_from_path(subpath, child) # recursion    
 
 
 def transaction_details(transaction):

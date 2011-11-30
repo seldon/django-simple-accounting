@@ -374,8 +374,7 @@ class AccountSystem(models.Model):
         Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names.            
         """
         
-        from simple_accounting.utils import get_account_from_path
-        account = get_account_from_path(path, self.root)
+        account = self.get_account_from_path(path)
         return account
     
     def __setitem__(self, path, account):
@@ -388,10 +387,52 @@ class AccountSystem(models.Model):
         
         If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``. 
         """ 
-        from simple_accounting.utils import get_account_from_path
-        parent_account = get_account_from_path(path, self.root)
+        parent_account = self.get_account_from_path(path)
         parent_account.add_child(account)   
     
+    @staticmethod
+    def _validate_account_path(path):
+        if not path.startswith(ACCOUNT_PATH_SEPARATOR):
+            raise ValueError("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
+        elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > len(ACCOUNT_PATH_SEPARATOR):
+            raise ValueError("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
+        
+    def get_account_from_path(self, path):
+        """
+        Given a path string ``path``, return the account living at that location, within this accounting system. 
+        
+        If no account exists at that location, raise ``Account.DoesNotExist``.
+        
+        If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
+        raise ``ValueError``.  
+        
+        Path string syntax 
+        ==================    
+        A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
+        *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
+        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names
+        """
+        # FIXME: broken implementation
+        path = path.strip() # strip leading and trailing whitespaces
+        self._validate_account_path(path)
+        # normalize paths so they end with ``ACCOUNT_PATH_SEPARATOR``
+        if not path.endswith(ACCOUNT_PATH_SEPARATOR):
+            path.append(ACCOUNT_PATH_SEPARATOR)
+        # split path components
+        path_components = path.split(ACCOUNT_PATH_SEPARATOR)
+        path_components = path_components[1:] # strip initial '' component
+        # corner case       
+        if path_components == ('',): # e.g. if path == '/'
+            return self.root  
+        else:
+            child = self.root.get_child(path_components[0])
+        
+        if len(path_components) == 1: # end recursion
+            return child
+        else:
+            subpath = ACCOUNT_PATH_SEPARATOR.join(path_components[1:]) 
+            self.get_account_from_path(subpath, child) # recursion  
+            
     def add_account(self, parent_path, name, kind, is_placeholder=False):
         """
         Add an account to this accounting system, based on given specifications.

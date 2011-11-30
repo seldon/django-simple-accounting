@@ -641,7 +641,7 @@ class CashFlow(models.Model):
     # model-level custom validation goes here
     def clean(self):
         ## check that ``account`` is stock-like
-        if not self.is_stock:
+        if not self.account.is_stock:
             raise ValidationError(_(u"Only stock-like accounts may represent cash-flows."))     
     
     def save(self, *args, **kwargs):
@@ -879,7 +879,7 @@ class Transaction(models.Model):
                 assert split.exit_point.system == self.source.system
             except AssertionError:
                 raise ValidationError(_(u"Exit-points must belong to the same accounting system as the source account"))        
-        ## for internal splits, check that target accounts belong 
+        ## for internal transactions, check that target accounts belong 
         ## to the same accounting system as the source account
         if self.is_internal:
             for split in self.splits:

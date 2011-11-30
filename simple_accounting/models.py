@@ -1118,8 +1118,9 @@ class AccountingProxy(object):
         """
         Pay an invoice issued to the subject owning this accounting system.
         
-        If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued to another subject,
-        raise ``ValueError``.   
+        If ``invoice`` isn't an ``Invoice`` model instance, raise ``ValueError``. 
+        
+        If ``invoice`` was issued to another subject, raise ``InvalidAccountingOperation``.   
         
         Usually, the action of paying an invoice triggers one or more transactions within one or more accounting systems; 
         on the other hand, details about these transaction(s) are strictly domain-dependent, so this method invokes
@@ -1137,8 +1138,9 @@ class AccountingProxy(object):
         """
         Mark as 'payed' an invoice issued by the subject owning this accounting system.
         
-        If ``invoice`` isn't an ``Invoice`` model instance, or if it was issued by another subject,
-        raise ``ValueError``.            
+        If ``invoice`` isn't an ``Invoice`` model instance, raise ``ValueError``.
+        
+        If ``invoice`` was issued by another subject, raise ``InvalidAccountingOperation``.
         
         Usually, the action of paying an invoice triggers one or more transactions within one or more accounting systems; 
         on the other hand, details about these transaction(s) are strictly domain-dependent, so this method invokes

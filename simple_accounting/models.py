@@ -427,7 +427,7 @@ class AccountSystem(models.Model):
         path_components = path.split(ACCOUNT_PATH_SEPARATOR)
         path_components = path_components[1:] # strip initial '' component
         # corner case       
-        if path_components == ('',): # e.g. if path == '/'
+        if path_components == ['']: # e.g. if path == '/'
             return self.root  
         else:
             child = self.root.get_child(path_components[0])

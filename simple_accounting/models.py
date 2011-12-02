@@ -331,8 +331,9 @@ class AccountSystem(models.Model):
             for account in self.accounts:
                 if account.is_root: 
                     self._root = account
+                    return self._root
             # if we arrived here, no root account was created for this accounting system !
-            raise MalformedAccountTree(ugettext(u"No root account was created for this account system !\n %s") % self)
+            raise MalformedAccountTree(ugettext(u"No root account was created for this account system ! %s") % self)
         return self._root
     
     @property

@@ -227,7 +227,7 @@ def register_internal_transaction(source, targets, description, issuer, date=Non
     """
     A factory function for registering internal transactions.
     
-    This is just a convenience version of ``register_transaction``,
+    This is just a convenience version of ``register_split_transaction``,
     to be used when dealing with internal transactions. 
     
     When invoked, this function takes care of the following tasks:

@@ -694,4 +694,248 @@ class QuerySetFromIterableTest(TestCase):
         pass
 
 
+class RegisterSplitTransactionTest(TestCase):
+    """Check that the ``register_split_transaction()`` factory function works as advertised"""
+   
+    def setUp(self):
+        pass
+    
+    def testTransactionCreationOK(self):
+        """``register_split_transaction()`` should create a new transaction, based on given input"""
+        pass
+    
+    def testLedgerEntriesCreationOK(self):
+        """``register_split_transaction()`` should create implied ledger entries"""
+        pass
+    
+    def testReturnValueIsTransaction(self):
+        """``register_split_transaction()`` should return the newly created transaction"""
+        pass
+    
+    def testFailIfSourceIsNotStockLike(self):
+        """If source account is flux-like, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfConservationOfMoneyNotSatisfied(self):
+        """If provided splits don't satisfy the *law of conservation of money*, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfExitPointsAndSourceInDifferentAccountingSystems(self):
+        """If exit-points and source account belong to different accounting systems, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfSourceAndTargetsInDifferentAccountingSystemsAndInternal(self):
+        """If transaction is internal and source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        pass
+     
+    def testFailIfAnyIsPlaceholder(self):
+        """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        pass   
+    
+    def testFailIfEntryExitPointNullStatusDiffers(self):
+        """If, for a split, exit-point's and entry-point's null statuses are different, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfExitPointIsNotFluxLike(self):
+        """If any exit-point is a stock-like account, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfEntryPointIsNotFluxLike(self):
+        """If any entry-point is a stock-like account, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfTargetIsNotStockLike(self):
+        """If any target account is not stock-like, raise ``MalformedTransaction``"""
+        pass
+        
+    def testFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
+        """If, for a split, entry-point belongs to a different accounting system than target account, raise ``MalformedTransaction``"""
+        pass
 
+
+class RegisterTransactionTest(TestCase):
+    """Check that the ``register_transaction()`` factory function works as advertised"""
+   
+    def setUp(self):
+        pass
+    
+    def testTransactionCreationOK(self):
+        """``register_transaction()`` should create a new transaction, based on given input"""
+        pass
+    
+    def testLedgerEntriesCreationOK(self):
+        """``register_transaction()`` should create implied ledger entries"""
+        pass
+    
+    def testReturnValueIsTransaction(self):
+        """``register_transaction()`` should return the newly created transaction"""
+        pass
+    
+    def testFailIfSourceIsNotStockLike(self):
+        """If source account is flux-like, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfExitPointAndSourceInDifferentAccountingSystems(self):
+        """If exit-point and source account belong to different accounting systems, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfAnyIsPlaceholder(self):
+        """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        pass   
+    
+    def testFailIfEntryOrExitPointNull(self):
+        """If either entry-point or exit-point is ``None``,  raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfExitPointIsNotFluxLike(self):
+        """If any exit-point is a stock-like account, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfEntryPointIsNotFluxLike(self):
+        """If any entry-point is a stock-like account, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfTargetIsNotStockLike(self):
+        """If any target account is not stock-like, raise ``MalformedTransaction``"""
+        pass
+        
+    def testFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
+        """If entry-point belongs to a different accounting system than target account, raise ``MalformedTransaction``"""
+        pass
+    
+
+class RegisterInternalTransactionTest(TestCase):
+    """Check that the ``register_internal_transaction()`` factory function works as advertised"""
+   
+    def setUp(self):
+        pass
+    
+    def testTransactionCreationOK(self):
+        """``register_internal_transaction()`` should create a new transaction, based on given input"""
+        pass
+    
+    def testLedgerEntriesCreationOK(self):
+        """``register_internal_transaction()`` should create implied ledger entries"""
+        pass
+    
+    def testReturnValueIsTransaction(self):
+        """``register_internal_transaction()`` should return the newly created transaction"""
+        pass
+    
+    def testFailIfSourceIsNotStockLike(self):
+        """If source account is flux-like, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfConservationOfMoneyNotSatisfied(self):
+        """If *law of conservation of money* is not satisfied, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfSourceAndTargetsInDifferentAccountingSystems(self):
+        """If source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        pass
+     
+    def testFailIfAnyIsPlaceholder(self):
+        """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        pass   
+       
+    def testFailIfTargetIsNotStockike(self):
+        """If any target account is not stock-like, raise ``MalformedTransaction``"""
+        pass
+        
+    
+class RegisterSimpleTransactionTest(TestCase):
+    """Check that the ``register_simple_transaction()`` factory function works as advertised"""
+   
+    def setUp(self):
+        pass
+    
+    def testTransactionCreationOK(self):
+        """``register_simple_transaction()`` should create a new transaction, based on given input"""
+        pass
+    
+    def testLedgerEntriesCreationOK(self):
+        """``register_simple_transaction()`` should create implied ledger entries"""
+        pass
+    
+    def testReturnValueIsTransaction(self):
+        """``register_simple_transaction()`` should return the newly created transaction"""
+        pass
+    
+    def testFailIfSourceIsNotStockLike(self):
+        """If source account is flux-like, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfSourceAndTargetsInDifferentAccountingSystems(self):
+        """If source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        pass
+     
+    def testFailIfAnyIsPlaceholder(self):
+        """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        pass   
+    
+    def testFailIfTargetIsNotStockLike(self):
+        """If target account is not stock-like, raise ``MalformedTransaction``"""
+        pass
+        
+        
+class UpdateTransactionTest(TestCase):
+    """Check that the ``update_transaction()`` factory function works as advertised"""
+   
+    def setUp(self):
+        pass
+    
+    def testTransactionUpdateOK(self):
+        """``update_transaction()`` should update the given transaction, based on provided input"""
+        pass
+    
+    def testStaleLedgerEntriesDeletionOK(self):
+        """``update_transaction()`` should delete stale ledger entries"""
+        pass
+    
+    def testUpdatedLedgerEntriesCreationOK(self):
+        """``update_transaction()`` should create implied ledger entries"""
+        pass
+    
+    def testReturnValueIsTransaction(self):
+        """``update_transaction()`` should return the update transaction"""
+        pass
+    
+    def testFailIfSourceIsNotStockLike(self):
+        """If updated source account is flux-like, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfConservationOfMoneyNotSatisfied(self):
+        """If updated splits don't satisfy the *law of conservation of money*, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfExitPointsAndSourceInDifferentAccountingSystems(self):
+        """If updated exit-points and source account belong to different accounting systems, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfSourceAndTargetsInDifferentAccountingSystemsAndInternal(self):
+        """If updated transaction is internal and source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        pass
+     
+    def testFailIfAnyIsPlaceholder(self):
+        """If an account involved by the updated transaction is a placeholder one, raise ``MalformedTransaction``"""
+        pass   
+    
+    def testFailIfEntryExitPointNullStatusDiffers(self):
+        """If, for an updated split, exit-point's and entry-point's null statuses are different, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfExitPointIsNotFluxLike(self):
+        """If any updated exit-point is a stock-like account, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfEntryPointIsNotFluxLike(self):
+        """If any updated entry-point is a stock-like account, raise ``MalformedTransaction``"""
+        pass
+    
+    def testFailIfTargetIsNotStockike(self):
+        """If any updated target account is not stock-like, raise ``MalformedTransaction``"""
+        pass
+        
+    def testFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
+        """If, for an updated split, entry-point belongs to a different accounting system than target account, raise ``MalformedTransaction``"""
+        pass

@@ -35,8 +35,8 @@ class PersonAccountingProxy(AccountingProxy):
             raise MalformedTransaction("A person can't pay membership fees to a GAS that (s)he is not member of")
         source_account = self.system['/wallet']
         exit_point = self.system['/expenses/gas/' + gas.uid + '/fees']
-        entry_point = gas.system['/incomes/fees']
-        target_account = gas.system['/cash']
+        entry_point = gas.accounting.system['/incomes/fees']
+        target_account = gas.accounting.system['/cash']
         amount = gas.membership_fee
         description = "Membership fee for year %(year)s" % {'year': year,}
         issuer = person 
@@ -59,8 +59,8 @@ class PersonAccountingProxy(AccountingProxy):
         else:
             source_account = self.system['/wallet']
             exit_point = self.system['/expenses/gas/' + gas.uid + '/recharges']
-            entry_point = gas.system['/incomes/recharges']
-            target_account = gas.system['/members/' + person.uid]
+            entry_point = gas.accounting.system['/incomes/recharges']
+            target_account = gas.accounting.system['/members/' + person.uid]
             description = "GAS member account recharge"
             issuer = person 
             transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='RECHARGE')
@@ -95,8 +95,8 @@ class GasAccountingProxy(AccountingProxy):
         supplier = pact.supplier
         source_account = self.system['/cash']
         exit_point = self.system['/expenses/suppliers/' + supplier.uid]
-        entry_point = supplier.system['/incomes/gas' + gas.uid]
-        target_account = supplier.system['/wallet']
+        entry_point = supplier.accounting.system['/incomes/gas/' + gas.uid]
+        target_account = supplier.accounting.system['/wallet']
         description = "Payment from GAS %(gas)s to supplier %(supplier)s" % {'gas': gas, 'supplier': supplier,}
         issuer = gas 
         transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='PAYMENT')
@@ -228,8 +228,8 @@ class SupplierAccountingProxy(AccountingProxy):
         
         source_account = self.system['/wallet']
         exit_point = self.system['/incomes/gas/' + gas.uid]
-        entry_point = gas.system['/expenses/suppliers/' + supplier.uid] 
-        target_account = gas.system['/cash']
+        entry_point = gas.accounting.system['/expenses/suppliers/' + supplier.uid] 
+        target_account = gas.accounting.system['/cash']
         description = "Refund from supplier %(supplier)s to GAS %(gas)s" % {'gas': gas, 'supplier': supplier,}
         issuer = supplier 
         transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='REFUND')
@@ -342,7 +342,7 @@ class GASMember(models.Model):
         except Account.DoesNotExist:
             person_system.add_account(parent_path='/expenses', name='gas', kind=account_type.expense, is_placeholder=True)
         # base account for expenses related to this GAS membership
-        person_system.add_account(parent_path='/expenses/', name=self.gas.uid, kind=account_type.expense, is_placeholder=True)
+        person_system.add_account(parent_path='/expenses', name=self.gas.uid, kind=account_type.expense, is_placeholder=True)
         # recharges
         person_system.add_account(parent_path='/expenses/' + self.gas.uid, name='recharges', kind=account_type.expense)
         # membership fees

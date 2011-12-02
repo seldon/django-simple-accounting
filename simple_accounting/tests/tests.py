@@ -938,4 +938,4 @@ class UpdateTransactionTest(TestCase):
         
     def testFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
         """If, for an updated split, entry-point belongs to a different accounting system than target account, raise ``MalformedTransaction``"""
-        pass
+        pass    

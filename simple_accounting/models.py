@@ -461,7 +461,8 @@ class AccountSystem(models.Model):
         
         If this accounting systems already has a root account, raise ``InvalidAccountingOperation``.
         """
-        self.add_account(parent_path='', name='', kind=account_type.root, is_placeholder=True)
+        Account.objects.create(system=self, parent=None, name='', kind=account_type.root, is_placeholder=True)
+        
         
            
 class Account(models.Model):

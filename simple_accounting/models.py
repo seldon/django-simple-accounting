@@ -417,7 +417,7 @@ class AccountSystem(models.Model):
         *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
         Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names
         """
-        # FIXME: broken implementation
+
         path = path.strip() # strip leading and trailing whitespaces
         self._validate_account_path(path)
         # normalize paths so they end with ``ACCOUNT_PATH_SEPARATOR``
@@ -430,15 +430,13 @@ class AccountSystem(models.Model):
         if path_components == ['']: # e.g. if path == '/'
             return self.root  
         else:
-            actual_parent = self.root
+            child = self.root
             while True:
-                print("AAAAAA", path_components, actual_parent)
-                child = actual_parent.get_child(path_components[0])
                 if len(path_components) == 1: # end recursion
                     return child
                 else:
+                    child = child.get_child(path_components[0])
                     path_components = path_components[1:]
-                    actual_parent = child 
             
     def add_account(self, parent_path, name, kind, is_placeholder=False):
         """

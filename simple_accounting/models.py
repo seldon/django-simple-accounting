@@ -430,13 +430,15 @@ class AccountSystem(models.Model):
         if path_components == ['']: # e.g. if path == '/'
             return self.root  
         else:
-            child = self.root.get_child(path_components[0])
-        
-        if len(path_components) == 1: # end recursion
-            return child
-        else:
-            subpath = ACCOUNT_PATH_SEPARATOR.join(path_components[1:]) 
-            self.get_account_from_path(subpath, child) # recursion  
+            actual_parent = self.root
+            while True:
+                print("AAAAAA", path_components, actual_parent)
+                child = actual_parent.get_child(path_components[0])
+                if len(path_components) == 1: # end recursion
+                    return child
+                else:
+                    path_components = path_components[1:]
+                    actual_parent = child 
             
     def add_account(self, parent_path, name, kind, is_placeholder=False):
         """
@@ -543,7 +545,10 @@ class Account(models.Model):
         """
         if self.is_root: # stop recursion
             return ACCOUNT_PATH_SEPARATOR
-        path = Account.path(self.parent) + ACCOUNT_PATH_SEPARATOR + self.name # recursion
+        path = self.parent.path 
+        if not self.parent.is_root:
+            path += ACCOUNT_PATH_SEPARATOR
+        path += self.name # recursion
         return path 
     
     @property

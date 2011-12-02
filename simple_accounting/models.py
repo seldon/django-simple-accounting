@@ -18,7 +18,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext_lazy as _, ugettext
 from django.core.exceptions import ValidationError
 
 from django.contrib.contenttypes.models import ContentType
@@ -97,7 +97,6 @@ class SubjectDescriptor(object):
     def __set__(self, instance, value):
         raise AttributeError(_(u"This is a read-only attribute"))
 
-
 def economic_subject(cls):
     """
     This function is meant to be used as a class decorator for augmenting subjective models.
@@ -152,6 +151,9 @@ def economic_subject(cls):
         if created:
             ct = ContentType.objects.get_for_model(sender)
             Subject.objects.create(content_type=ct, object_id=instance.pk)
+            # call the ``.setup_accounting()`` method on the sender model, if defined
+            if getattr(instance, 'setup_accounting', None):     
+                instance.setup_accounting()
             
     # clean-up dangling subjects after a subjective model instance is deleted from the DB
     @receiver(post_delete, sender=model, weak=False)
@@ -164,17 +166,6 @@ def economic_subject(cls):
     subjective_models.append(model)
     
     return model
-
-## Signals
-# setup accounting-related things for *every* model
-# implementing a ``.setup_accounting()`` method.
-@receiver(post_save)
-def setup_accounting(sender, instance, created, **kwargs):
-    if created:
-    # call the ``.setup_accounting()`` method on the sender model, if defined
-        if getattr(instance, 'setup_accounting', None):     
-            instance.setup_accounting()
-            
 
 class AccountType(models.Model):
     """
@@ -260,6 +251,13 @@ class BasicAccountTypeDict(dict):
     If the given key is not a valid name for a basic account type 
     (as defined by ``AccountType.BASIC_ACCOUNT_TYPES``), raise a ``KeyError``.
     """
+    _type_d = {
+        'ROOT' : AccountType.ROOT,
+        'INCOME' : AccountType.INCOME,
+        'EXPENSE' : AccountType.EXPENSE,
+        'ASSET' : AccountType.ASSET,
+        'LIABILITY' : AccountType.LIABILITY,
+    }
     
     def __getitem__(self, key):
 
@@ -269,7 +267,12 @@ class BasicAccountTypeDict(dict):
         try:
             rv = super(BasicAccountTypeDict, self).__getitem__(key)
         except KeyError:
-            rv = self[key] = AccountType.objects.get(name=key)
+            try:
+                account_type = AccountType.objects.get(name=key)
+            except AccountType.DoesNotExist:
+                base_type = BasicAccountTypeDict._type_d[key]
+                account_type = AccountType.objects.create(name=key, base_type=base_type)
+            rv = self[key] = account_type
         return rv
 
 
@@ -408,6 +411,7 @@ class AccountSystem(models.Model):
         
         Path string syntax 
         ==================    
+
         A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
         *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
         Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names
@@ -417,7 +421,7 @@ class AccountSystem(models.Model):
         self._validate_account_path(path)
         # normalize paths so they end with ``ACCOUNT_PATH_SEPARATOR``
         if not path.endswith(ACCOUNT_PATH_SEPARATOR):
-            path.append(ACCOUNT_PATH_SEPARATOR)
+            path += ACCOUNT_PATH_SEPARATOR
         # split path components
         path_components = path.split(ACCOUNT_PATH_SEPARATOR)
         path_components = path_components[1:] # strip initial '' component
@@ -461,7 +465,7 @@ class AccountSystem(models.Model):
         
         If this accounting systems already has a root account, raise ``InvalidAccountingOperation``.
         """
-        self.add_account(parent_path='', name='', kind=account_type.root, is_placeholder=True)
+        Account.objects.create(system=self, parent=None, name='', kind=account_type.root, is_placeholder=True)
         
            
 class Account(models.Model):

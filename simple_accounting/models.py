@@ -18,7 +18,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext, ugettext_lazy as _
 from django.core.exceptions import ValidationError
 
 from django.contrib.contenttypes.models import ContentType
@@ -329,7 +329,7 @@ class AccountSystem(models.Model):
                 if account.is_root: 
                     self._root = account
             # if we arrived here, no root account was created for this accounting system !
-            raise MalformedAccountTree(_(u"No root account was created for this account system !\n %s") % self)
+            raise MalformedAccountTree(ugettext(u"No root account was created for this account system !\n %s") % self)
         return self._root
     
     @property

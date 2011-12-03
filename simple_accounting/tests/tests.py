@@ -15,10 +15,15 @@
 # along with ``django-simple-accounting``. If not, see <http://www.gnu.org/licenses/>.
 
 from django.test import TestCase
+from django.contrib.contenttypes.models import ContentType 
+
+from simple_accounting.models import account_type
+from simple_accounting.models import Subject, AccountSystem, Account
 
 from simple_accounting.tests.models import Person, GAS, Supplier
 from simple_accounting.tests.models import GASSupplierSolidalPact, GASMember
 from simple_accounting.tests.models import GASSupplierOrder, GASSupplierOrderProduct, GASMemberOrder, GASSupplierStock
+
 
 class DES(object):
     def __init__(self, people, gases, suppliers):
@@ -93,48 +98,87 @@ class SubjectDescriptorTest(TestCase):
     """Tests related to the ``SubjectDescriptor`` descriptor"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.supplier = Supplier.objects.create(name="GoodCompany")
     
     def testGetSucceedOnInstance(self):
         """Check that the ``subject`` attribute can be accessed from model instances"""
-        pass
+        self.person.subject
+        self.gas.subject
+        self.supplier.subject        
 
     def testGetFailOnClass(self):
         """Check that the ``subject`` attribute cannot be accessed from the model class"""
-        pass
+        self.assertRaises(AttributeError, lambda: Person.subject)
+        self.assertRaises(AttributeError, lambda: GAS.subject)
+        self.assertRaises(AttributeError, lambda: Supplier.subject)
 
     def testSetFailIfInstance(self):  
         """Check that the ``Subject`` attribute is read-only"""
-        pass
-
+        for instance in self.person, self.gas, self.supplier:
+            try:    
+                subject = instance.subject
+                # just a re-assignment
+                instance.subject = subject
+            except AttributeError:
+                pass
+            else:
+                raise AssertionError            
+            
 
 class EconomicSubjectTest(TestCase):
     """Tests for the ``economic_subject`` decorator"""
     
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.supplier = Supplier.objects.create(name="GoodCompany")
     
     def testSubjectCreation(self):
         """When a subjective model is instantiated, a corresponding ``Subject`` instance should be auto-created"""
-        pass
+        content_type = ContentType.objects.get_for_model(self.person)
+        object_id = self.person.pk
+        Subject.objects.get(content_type, object_id)
+        
+        content_type = ContentType.objects.get_for_model(self.gas)
+        object_id = self.gas.pk
+        Subject.objects.get(content_type, object_id)
     
+        content_type = ContentType.objects.get_for_model(self.supplier)
+        object_id = self.supplier.pk
+        Subject.objects.get(content_type, object_id)
+        
     def testSubjectAccess(self):
         """Check that ``Subject`` instances can be accessed from the corresponding subjective models instances"""
-        pass
-    
+        for instance in self.person, self.gas, self.supplier:
+            content_type = ContentType.objects.get_for_model(instance)
+            object_id = instance.pk
+            self.assertEqual(instance.subject, Subject.objects.get(content_type, object_id))
     
     def testSubjectCleanUp(self):
         """When a subjective model is deleted, the corresponding ``Subject`` instance should be auto-deleted """
-        pass
+        for instance in self.person, self.gas, self.supplier:
+            content_type = ContentType.objects.get_for_model(instance)
+            object_id = instance.pk
+            instance.delete()
+            self.assertRaises(Subject.DoesNotExist, Subject.objects.get, content_type, object_id)
     
     def testSetupAccounting(self):
-        """When a a subjective model is instantiated, the ``.setup_accounting()`` should be automatically called"""
-        pass
+        """When a a subjective model is instantiated, ``.setup_accounting()`` should be automatically called"""
+        for subject in self.person, self.gas, self.supplier:
+            # check that an accounting system for this subject has been created 
+            system = AccountSystem.objects.get(owner=subject)
+            # check that a root account  has been created
+            root = Account.objects.get(system=system, parent=None, name='', kind=account_type.root)
+            # check that an `/incomes` account  has been created
+            Account.objects.get(system=system, parent=root, name='incomes', kind=account_type.income)
+            # check that a `/expenses` account  has been created
+            Account.objects.get(system=system, parent=root, name='expenses', kind=account_type.expense)        
     
     def testNonSubjectifiableModels(self):
         """A model which already defines a ``subject`` attribute cannot be made 'subjective'"""
         pass
-    
     
         
 class SubjectModelTest(TestCase):

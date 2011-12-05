@@ -777,12 +777,15 @@ class Split(models.Model):
                 assert not self.entry_point
             except AssertionError:
                 raise ValidationError(ugettext(u"If no exit-point is set for a split, no entry-point must be set, either."))      
-        ## ``entry_point`` must be a flux-like account
-        if not self.entry_point.is_flux:
-                raise ValidationError(ugettext(u"Entry-points must be flux-like accounts"))
-        ## ``exit_point`` must be a flux-like account
-        if not self.exit_point.is_flux:
-                raise ValidationError(ugettext(u"Exit-points must be flux-like accounts"))
+        else:
+            ## ``exit_point`` must be a flux-like account
+            if not self.exit_point.is_flux:
+                    raise ValidationError(ugettext(u"Exit-points must be flux-like accounts"))
+
+        if self.entry_point:
+            ## ``entry_point`` must be a flux-like account
+            if not self.entry_point.is_flux:
+                    raise ValidationError(ugettext(u"Entry-points must be flux-like accounts"))
         ## ``target`` must be a stock-like account
         if not self.target.account.is_stock:
                 raise ValidationError(ugettext(u"Target must be a stock-like account"))

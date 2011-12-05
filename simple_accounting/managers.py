@@ -48,5 +48,5 @@ class TransactionManager(models.Manager):
             trefs = TransactionReference.objects.filter(content_type=ct, object_id=obj_id)
             transactions &= set([tref.transaction for tref in trefs])        
         if transactions:
-            queryset_from_iterable(self.model, transactions)
+            qs = queryset_from_iterable(self.model, transactions)
         return qs

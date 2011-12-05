@@ -913,6 +913,9 @@ class Transaction(models.Model):
     
     # model-level custom validation goes here
     def clean(self):
+        if self.pk is None:
+            return
+
         ## check that the *law of conservation of money* is satisfied
         flows = [self.source]
         for split in self.splits:

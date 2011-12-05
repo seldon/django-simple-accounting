@@ -1093,7 +1093,10 @@ class LedgerEntry(models.Model):
         Get the first available integer to be used as an ID for this entry in the ledger.
         """
         existing_entries = self.account.ledger_entries
-        next_id = max([entry.id for entry in existing_entries]) + 1
+        try:
+            next_id = max([entry.id for entry in existing_entries]) + 1
+        except ValueError:
+            next_id = 1
         return next_id
         
     

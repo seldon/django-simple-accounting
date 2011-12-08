@@ -245,6 +245,9 @@ class Person(models.Model):
 
     accounting = AccountingDescriptor(PersonAccountingProxy)
     
+    def __unicode__(self):
+        return self.full_name
+    
     def setup_accounting(self):
         self.subject.init_accounting_system()
         system = self.accounting_system
@@ -271,7 +274,7 @@ class Person(models.Model):
     
     @property
     def full_name(self):
-        return self.name + self.surname
+        return ' '.join((self.name, self.surname))
     
     @property
     def gas_memberships(self):
@@ -287,6 +290,9 @@ class GAS(models.Model):
     membership_fee = CurrencyField(null=True, blank=True)
     
     accounting = AccountingDescriptor(GasAccountingProxy)
+    
+    def __unicode__(self):
+        return self.name
     
     def setup_accounting(self):
         self.subject.init_accounting_system()
@@ -330,6 +336,9 @@ class GASMember(models.Model):
     person = models.ForeignKey(Person, related_name='gas_membership_set')
     gas = models.ForeignKey(GAS)
     
+    def __unicode__(self):
+        return u"Member %(person)s of GAS %(gas)s" % {'person': self.person, 'gas': self.gas}
+    
     def setup_accounting(self):
         person_system = self.person.subject.accounting_system
         gas_system = self.gas.subject.accounting_system
@@ -372,6 +381,9 @@ class Supplier(models.Model):
     
     accounting = AccountingDescriptor(SupplierAccountingProxy)
     
+    def __unicode__(self):
+        return self.name
+    
     def setup_accounting(self):
         self.subject.init_accounting_system()
         system = self.accounting_system
@@ -393,17 +405,27 @@ class Supplier(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=128)
-     
+
+    def __unicode__(self):
+        return self.name
+    
 
 class SupplierStock(models.Model):
     supplier = models.ForeignKey(Supplier, related_name='stock_set')
     product = models.ForeignKey(Product, related_name='stock_set')
     price = CurrencyField()
+    
+    def __unicode__(self):
+        return u"%(product)s from supplier %(supplier)s" % {'product': self.product, 'supplier': self.supplier}
+     
      
 ## GAS-Supplier interface
 class GASSupplierSolidalPact(models.Model):
     gas = models.ForeignKey(GAS, related_name='pact_set')
     supplier = models.ForeignKey(Supplier, related_name='pact_set')
+
+    def __unicode__(self):
+        return u"Pact between GAS %(gas)s and supplier %(supplier)s" % {'gas': self.gas, 'supplier': self.supplier}
     
     def setup_accounting(self):
         ## create accounts for logging GAS <-> Supplier transactions
@@ -419,7 +441,11 @@ class GASSupplierSolidalPact(models.Model):
 # GAS -> Supplier   
 class GASSupplierStock(models.Model):
     pact = models.ForeignKey(GASSupplierSolidalPact)
-    stock = models.ForeignKey(SupplierStock)  
+    stock = models.ForeignKey(SupplierStock)
+    
+    def __unicode__(self):
+        return u"Product %(product)s from supplier %(supplier)s available to GAS %(gas)s" \
+            % {'gas': self.pact.gas, 'supplier': self.pact.supplier, 'product': self.stock.product}  
     
 
 class GASSupplierOrder(models.Model):
@@ -440,6 +466,10 @@ class GASSupplierOrder(models.Model):
     # workflow management
     status = models.IntegerField(choices=SUPPLIER_ORDER_STATUS_CHOICES)
     invoice = models.ForeignKey(Invoice, null=True, blank=True)
+    
+    def __unicode__(self):
+        return u"Order from GAS %(gas)s to supplier %(supplier)s" \
+            % {'gas': self.pact.gas, 'supplier': self.pact.supplier}  
     
     @property
     def orderable_products(self):
@@ -514,6 +544,10 @@ class GASMemberOrder(models.Model):
     withdrawn_amount = models.PositiveIntegerField()
     # workflow management
     status = models.IntegerField(choices=MEMBER_ORDER_STATUS_CHOICES)
+    
+    def __unicode__(self):
+        return u"Order from member %(member)s to GAS %(gas)s" \
+            % {'member': self.purchaser, 'gas': self.purchaser.gas}  
     
     @property
     def supplier_order(self):

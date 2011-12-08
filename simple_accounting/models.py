@@ -27,7 +27,7 @@ from django.contrib.contenttypes import generic
 from simple_accounting.consts import ACCOUNT_PATH_SEPARATOR
 from simple_accounting.fields import CurrencyField
 from simple_accounting.managers import AccountManager, TransactionManager
-from simple_accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation
+from simple_accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation, MalformedPathString
 
 from datetime import datetime
 
@@ -367,7 +367,7 @@ class AccountSystem(models.Model):
         If no account exists at that location, raise ``Account.DoesNotExist``.
         
         If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
-        raise ``ValueError``.
+        raise ``MalformedPathString``.
     
         Path string syntax 
         ==================    
@@ -384,8 +384,9 @@ class AccountSystem(models.Model):
         Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
         and an ``Account`` instance; add that account to the children of the account living at that path location.
           
-        If the given path location is invalid (see ``__getitem__``'s docstring fo details), 
-        or ``account`` is not a valid ``Account`` instance, raise ``ValueError`.
+        If the given path location is invalid (see ``__getitem__``'s docstring fo details) raise ``MalformedPathString``. 
+        
+        If ``account`` is not a valid ``Account`` instance, raise ``ValueError`.
         
         If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``. 
         """ 
@@ -395,9 +396,9 @@ class AccountSystem(models.Model):
     @staticmethod
     def _validate_account_path(path):
         if not path.startswith(ACCOUNT_PATH_SEPARATOR):
-            raise ValueError("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
+            raise MalformedPathString("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
         elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > len(ACCOUNT_PATH_SEPARATOR):
-            raise ValueError("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
+            raise MalformedPathString("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
         
     def get_account_from_path(self, path):
         """
@@ -406,13 +407,13 @@ class AccountSystem(models.Model):
         If no account exists at that location, raise ``Account.DoesNotExist``.
         
         If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
-        raise ``ValueError``.  
+        raise ``MalformedPathString``.  
         
         Path string syntax 
         ==================    
         A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
         *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
-        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names
+        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names.
         """
         # FIXME: broken implementation
         path = path.strip() # strip leading and trailing whitespaces
@@ -451,7 +452,7 @@ class AccountSystem(models.Model):
         ``is_placeholder``
             A boolean flag specifying if this account is to be considered a placeholder
             
-        If the given path location is invalid (see ``__getitem__``'s docstring fo details), raise ``ValueError``.  
+        If the given path location is invalid (see ``__getitem__``'s docstring fo details), raise ``MalformedPathString``.  
         
         If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``.
         """
@@ -643,7 +644,7 @@ class Account(models.Model):
             account.parent = self
             account.save()
         else:
-            raise ValueError("A child account already exists with name %s" % account.name)  
+            raise InvalidAccountingOperation("A child account already exists with name %s" % account.name)  
     
     class Meta:
         unique_together = ('parent', 'name')

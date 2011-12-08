@@ -19,6 +19,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from simple_accounting.models import account_type
 from simple_accounting.models import Subject, AccountSystem, Account
+from simple_accounting.exceptions import MalformedPathString, InvalidAccountingOperation, MalformedAccountTree, MalformedTransaction, SubjectiveAPIError
 
 from simple_accounting.tests.models import Person, GAS, Supplier
 from simple_accounting.tests.models import GASSupplierSolidalPact, GASMember
@@ -296,81 +297,156 @@ class AccountSystemTreeNavigationTest(TestCase):
     """Tests for the account-tree navigation system"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.subject = self.person.subject
+        self.system = self.person.accounting.system
+        # sweep away auto-created accounts
+        self.root = Account.objects.create(system=self.system, parent=None, name='', kind=account_type.root, is_placeholder=True)
+        self.spam = Account.objects.create(system=self.system, parent=self.root, name='spam', kind=account_type.asset)
+        self.cheese = Account.objects.create(system=self.system, parent=self.root, name='cheese', kind=account_type.income)
+        self.bar = Account.objects.create(system=self.system, parent=self.spam, name='bar', kind=account_type.asset)
+        self.baz = Account.objects.create(system=self.system, parent=self.spam, name='baz', kind=account_type.liability)
     
     def testGetAccountFromPathOK(self):
         """Test normal behaviour of the ``.get_account_from_path()`` method"""
-        pass
+        self.assertEqual(self.system.get_account_from_path('/spam'), self.spam)  
+        self.assertEqual(self.system.get_account_from_path('/cheese'), self.cheese)
+        self.assertEqual(self.system.get_account_from_path('/spam/bar'), self.bar)
+        self.assertEqual(self.system.get_account_from_path('/spam/baz'), self.baz)
     
     def testGetAccountFromPathEmptyPath(self):
         """If given the empty path, ``.get_account_from_path()`` should return the root account"""
-        pass
+        self.assertEqual(self.system.get_account_from_path('/'), self.root)
     
     def testGetAccountFromPathFailIfMalformedPathString(self):
-        """If ``.get_account_from_path()`` is given a malformed path string, should raise ValueError"""
-        pass
-    
+        """If ``.get_account_from_path()`` is given a malformed path string, it should raise ``MalformedPathString``"""
+        # the empy string is not a valid path 
+        self.assertRaises(MalformedPathString, self.system.get_account_from_path, '')
+        # a path must start with a single ``ACCOUNT_PATH_SEPARATOR`` occurrence   
+        self.assertRaises(MalformedPathString, self.system.get_account_from_path, 'spam')
+        self.assertRaises(MalformedPathString, self.system.get_account_from_path, ':spam')
+        self.assertRaises(MalformedPathString, self.system.get_account_from_path, '//spam')
+        # a path cannot end with ``ACCOUNT_PATH_SEPARATOR``
+        self.assertRaises(MalformedPathString, self.system.get_account_from_path, '/spam/')
+        # path components must be separated by a single ``ACCOUNT_PATH_SEPARATOR`` occurrence
+        self.assertRaises(MalformedPathString, self.system.get_account_from_path, '/spam//bar')       
+        
     def testGetAccountFromPathFailIfNotExists(self):
-        """If no accounts exist at the given location, ``.get_account_from_path()`` should raise Account.DoesNotExist"""
-        pass
+        """If no accounts exist at the given location, ``.get_account_from_path()`` should raise ``Account.DoesNotExist``"""
+        self.assertRaises(Account.DoesNotExist, self.system.get_account_from_path, '/bar')
+        self.assertRaises(Account.DoesNotExist, self.system.get_account_from_path, '/spam/cheese')
     
     def testGetAccountFromPathExtraSpaces(self):
         """``.get_account_from_path()`` should ignore leading and trailing whitespaces"""
-        pass
+        self.assertEqual(self.system.get_account_from_path(' /spam'), self.spam)
+        self.assertEqual(self.system.get_account_from_path('/spam '), self.spam)
     
     def testAccessOK(self):
         """If a valid path string is given, return the account living at that location"""
-        pass
+        self.assertEqual(self.system['/spam'], self.spam)  
+        self.assertEqual(self.system['/cheese'], self.cheese)
+        self.assertEqual(self.system['/spam/bar'], self.bar)
+        self.assertEqual(self.system['/spam/baz'], self.baz)
     
     def testNonExistentAccount(self):
-        """If given a well-formed path string but no account exists at that location, raise Account.DoesNotExist"""
-        pass
+        """If given a well-formed path string but no account exists at that location, raise ``Account.DoesNotExist``"""
+        try:    
+            self.system['/bar']
+            self.system['/spam/cheese']                        
+        except Account.DoesNotExist:
+            pass
+        else:
+            raise AssertionError      
     
     def testMalformedPathString(self):
-        """If given a malformed path string, raise ValueError"""
-        pass
+        """If given a malformed path string, raise ``MalformedPathString``"""
+        try:
+            # the empy string is not a valid path
+            self.system[''] 
+            # a path must start with a single ``ACCOUNT_PATH_SEPARATOR`` occurrence
+            self.system['spam']
+            self.system[':spam']
+            self.system['//spam'] 
+            # a path cannot end with ``ACCOUNT_PATH_SEPARATOR``
+            self.system['/spam/']
+            # path components must be separated by a single ``ACCOUNT_PATH_SEPARATOR`` occurrence        
+            self.system['/spam//bar']
+        except MalformedPathString:
+            pass
+        else:
+            raise AssertionError      
     
     def testGetChildOK(self):
         """Check that a given child account can be retrieved, if existing"""
-        pass
-    
+        self.assertEqual(self.root.get_child('spam'), self.spam)  
+        self.assertEqual(self.root.get_child('cheese'), self.cheese)
+        self.assertEqual(self.spam.get_child('bar'), self.bar)
+        self.assertEqual(self.spam.get_child('baz'), self.baz)
+        
     def testGetChildFailIfNotExists(self):
-        """If no child accounts with a given name exist, raise  Account.DoesNotExist"""
-        pass
+        """If no child accounts with a given name exist, raise  ``Account.DoesNotExist``"""
+        self.assertRaises(Account.DoesNotExist, self.root.get_child, 'ham')
+        self.assertRaises(Account.DoesNotExist, self.cheese.get_child, 'bar')
+        self.assertRaises(Account.DoesNotExist, self.spam.get_child, 'ham')
     
     def testGetChildren(self):
         """Check that the method ``.get_children()`` works as advertised"""
-        pass
+        self.assertEqual(set(self.root.get_children()), set((self.spam, self.cheese)))
+        self.assertEqual(set(self.spam.get_children()), set((self.bar, self.baz)))
 
 
 class AccountSystemManipulationTest(TestCase):
     """Tests for the account-tree manipulation API"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.subject = self.person.subject
+        self.system = self.person.accounting.system
+        # sweep away auto-created accounts
+        self.root = Account.objects.create(system=self.system, parent=None, name='', kind=account_type.root, is_placeholder=True)
+        self.spam = Account.objects.create(system=self.system, parent=self.root, name='spam', kind=account_type.asset)
+        self.cheese = Account.objects.create(system=self.system, parent=self.root, name='cheese', kind=account_type.income)
+        self.bar = Account.objects.create(system=self.system, parent=self.spam, name='bar', kind=account_type.asset)
+        self.baz = Account.objects.create(system=self.system, parent=self.spam, name='baz', kind=account_type.liability)
     
     def testAddAccountOK(self):
         """Check that adding an account by ``.add_account()`` succeeds if given arguments are valid"""
-        pass
+        self.system.add_account(parent_path='/', name='ham', kind=account_type.expense)
+        new_account = Account.objects.get(system=self.system, parent=self.root, name='ham')
+        self.assertEqual(new_account.kind, account_type.expense)
+        self.assertEqual(new_account.is_placeholder, False)
+        
+        self.system.add_account(parent_path='/spam', name='egg', kind=account_type.asset, is_placeholder=True)
+        new_account = Account.objects.get(system=self.system, parent=self.spam, name='egg')
+        self.assertEqual(new_account.kind, account_type.asset)
+        self.assertEqual(new_account.is_placeholder, True)
 
     def testAddAccounthFailIfMalformedPathString(self):
-        """If given a malformed path string to the parent account, raise ValueError"""
-        pass
+        """If given a malformed path string to the parent account, raise ``MalformedPathString``"""
+        self.assertRaises(MalformedPathString, self.system.add_account, parent_path='', name='ham', kind=account_type.asset)
+        self.assertRaises(MalformedPathString, self.system.add_account, parent_path='spam', name='ham', kind=account_type.asset)
+        self.assertRaises(MalformedPathString, self.system.add_account, parent_path=':spam', name='ham', kind=account_type.asset)
+        self.assertRaises(MalformedPathString, self.system.add_account, parent_path='//spam', name='ham', kind=account_type.asset)
+        self.assertRaises(MalformedPathString, self.system.add_account, parent_path='/spam/', name='ham', kind=account_type.asset)
+        self.assertRaises(MalformedPathString, self.system.add_account, parent_path='/spam//bar', name='ham', kind=account_type.asset)
    
     def testAddAccountFailIfAlreadyExistingChild(self):
-        """If specified parent account has already a child named as the given account instance, raise InvalidAccountingOperation"""
-        pass
+        """If specified parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``"""
+        self.assertRaises(InvalidAccountingOperation, self.system.add_account, parent_path='', name='spam', kind=account_type.asset)
+        self.assertRaises(InvalidAccountingOperation, self.system.add_account, parent_path='', name='spam', kind=account_type.expense)
+        self.assertRaises(InvalidAccountingOperation, self.system.add_account, parent_path='/spam', name='bar', kind=account_type.asset)
+        self.assertRaises(InvalidAccountingOperation, self.system.add_account, parent_path='/spam', name='bar', kind=account_type.liability)
         
     def testAddAccountByPathOK(self):
         """If given a valid path string and an ``Account`` instance, add that account under the given location"""
         pass
     
     def testAddAccountByPathFailIfMalformedPathString(self):
-        """If given a malformed path string to the parent account, raise ValueError"""
+        """If given a malformed path string to the parent account, raise ``MalformedPathString``"""
         pass
     
     def testAddAccountByPathFailIfInvalidAccountInstance(self):
-        """If given an invalid account instance, raise ValueError"""
+        """If given an invalid account instance, raise ``ValueError``"""
         pass
 
     def testAddAccountByPathFailIfAlreadyExistingChild(self):
@@ -390,7 +466,7 @@ class AccountSystemManipulationTest(TestCase):
         pass
     
     def testAddChildFailInvalidAccountInstance(self):
-        """If given an invalid account instance to ``.add_child()``, raise ValueError"""
+        """If given an invalid account instance to ``.add_child()``, raise ``ValueError``"""
         pass
     
     def testAddChildFailIfAlreadyExistingChild(self):

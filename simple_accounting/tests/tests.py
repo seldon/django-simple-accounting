@@ -137,24 +137,17 @@ class EconomicSubjectTest(TestCase):
     
     def testSubjectCreation(self):
         """When a subjective model is instantiated, a corresponding ``Subject`` instance should be auto-created"""
-        content_type = ContentType.objects.get_for_model(self.person)
-        object_id = self.person.pk
-        Subject.objects.get(content_type, object_id)
-        
-        content_type = ContentType.objects.get_for_model(self.gas)
-        object_id = self.gas.pk
-        Subject.objects.get(content_type, object_id)
-    
-        content_type = ContentType.objects.get_for_model(self.supplier)
-        object_id = self.supplier.pk
-        Subject.objects.get(content_type, object_id)
-        
+        for instance in self.person, self.gas, self.supplier:
+            content_type = ContentType.objects.get_for_model(instance)
+            object_id = instance.pk
+            Subject.objects.get(content_type=content_type, object_id=object_id)
+            
     def testSubjectAccess(self):
         """Check that ``Subject`` instances can be accessed from the corresponding subjective models instances"""
         for instance in self.person, self.gas, self.supplier:
             content_type = ContentType.objects.get_for_model(instance)
             object_id = instance.pk
-            self.assertEqual(instance.subject, Subject.objects.get(content_type, object_id))
+            self.assertEqual(instance.subject, Subject.objects.get(content_type=content_type, object_id=object_id))
     
     def testSubjectCleanUp(self):
         """When a subjective model is deleted, the corresponding ``Subject`` instance should be auto-deleted """
@@ -162,11 +155,12 @@ class EconomicSubjectTest(TestCase):
             content_type = ContentType.objects.get_for_model(instance)
             object_id = instance.pk
             instance.delete()
-            self.assertRaises(Subject.DoesNotExist, Subject.objects.get, content_type, object_id)
+            self.assertRaises(Subject.DoesNotExist, Subject.objects.get, content_type=content_type, object_id=object_id)
     
-    def testSetupAccounting(self):
-        """When a a subjective model is instantiated, ``.setup_accounting()`` should be automatically called"""
-        for subject in self.person, self.gas, self.supplier:
+    def testSetupAccountingForSubjectiveModels(self):
+        """When a subjective model is instantiated, ``.setup_accounting()`` should be automatically called"""
+        for instance in self.person, self.gas, self.supplier:
+            subject = instance.subject
             # check that an accounting system for this subject has been created 
             system = AccountSystem.objects.get(owner=subject)
             # check that a root account  has been created
@@ -174,8 +168,36 @@ class EconomicSubjectTest(TestCase):
             # check that an `/incomes` account  has been created
             Account.objects.get(system=system, parent=root, name='incomes', kind=account_type.income)
             # check that a `/expenses` account  has been created
-            Account.objects.get(system=system, parent=root, name='expenses', kind=account_type.expense)        
-    
+            Account.objects.get(system=system, parent=root, name='expenses', kind=account_type.expense)          
+            
+    def testSetupAccountingForNonSubjectiveModels(self):
+        """When a non-subjective model is instantiated, ``.setup_accounting()`` should be automatically called, if defined"""
+        ## GAS member
+        member = GASMember.objects.create(gas=self.gas, person=self.person)
+        ## person-side account-tree changes
+        person_system = self.person.accounting.system
+        # check that an `/expenses/gas/<gas UID>` account  has been created 
+        person_system['/expenses/gas/' + self.gas.uid]
+        # check that an `/expenses/gas/<gas UID>/recharges` account  has been created
+        person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        # check that an `/expenses/gas/<gas UID>/fees` account  has been created
+        person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        ## GAS-side account-tree changes
+        gas_system = self.gas.accounting.system
+        # check that a `/members/<member UID>` account  has been created
+        gas_system['/members/' + member.uid]
+                
+        ## Solidal pact
+        pact = GASSupplierSolidalPact.objects.create(gas=self.gas, supplier=self.supplier)
+        ## GAS-side account-tree changes
+        gas_system = pact.gas.accounting.system
+        # check that an `/expenses/suppliers/<supplier UID>` account  has been created 
+        gas_system['/expenses/suppliers/' + pact.supplier.uid]
+        ## supplier-side account-tree changes
+        supplier_system = pact.supplier.accounting.system
+        # check that a `/incomes/gas/<GAS UID>` account  has been created
+        supplier_system['/incomes/gas/' + pact.gas.uid]       
+        
     def testNonSubjectifiableModels(self):
         """A model which already defines a ``subject`` attribute cannot be made 'subjective'"""
         pass

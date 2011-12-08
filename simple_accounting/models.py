@@ -324,10 +324,12 @@ class AccountSystem(models.Model):
     # the root account of this system
     @property
     def root(self):
+        # caching
         if not getattr(self,'_root', None):
             for account in self.accounts:
                 if account.is_root: 
                     self._root = account
+                    return self._root
             # if we arrived here, no root account was created for this accounting system !
             raise MalformedAccountTree(ugettext(u"No root account was created for this account system !\n %s") % self)
         return self._root

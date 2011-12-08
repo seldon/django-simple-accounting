@@ -64,10 +64,10 @@ class Subject(models.Model):
         try:
             return self.account_system
         except AccountSystem.DoesNotExist:
-            raise AttributeError(_(u"No accounting system has been setup for this subject %s") % self)
+            raise AttributeError(ugettext(u"No accounting system has been setup for this subject %s") % self)
     
     def __unicode__(self):
-        return _(u"Economic subject: %(instance)s") % {'instance':self.instance}
+        return ugettext(u"%(instance)s as an economic subject") % {'instance':self.instance}
         
     def init_accounting_system(self):
         """
@@ -89,13 +89,13 @@ class SubjectDescriptor(object):
     
     def __get__(self, instance, owner):
         if instance is None:
-            raise AttributeError(_(u"This attribute can only be accessed from a %s instance") % owner.__name__)
+            raise AttributeError(ugettext(u"This attribute can only be accessed from a %s instance") % owner.__name__)
         instance_ct = ContentType.objects.get_for_model(instance)  
         subject = Subject.objects.get(content_type=instance_ct, object_id=instance.pk)
         return subject
         
     def __set__(self, instance, value):
-        raise AttributeError(_(u"This is a read-only attribute"))
+        raise AttributeError(ugettext(u"This is a read-only attribute"))
 
 
 def economic_subject(cls):
@@ -140,7 +140,7 @@ def economic_subject(cls):
     if 'subject' in model.__dict__.keys():
         # this model already has an attribute named `subject`, 
         # so it can't be made *subjective*
-        raise SubjectiveAPIError(_(u"The model %(model)s already has a 'subject' attribute, so it can't be made 'subjective'")\
+        raise SubjectiveAPIError(ugettext(u"The model %(model)s already has a 'subject' attribute, so it can't be made 'subjective'")\
                                   % {'model': model})
     setattr(model, 'subject', SubjectDescriptor()) 
     
@@ -354,7 +354,7 @@ class AccountSystem(models.Model):
         return total_amount
 
     def __unicode__(self):
-        return _(u"Accounting system for %(subject)s" % {'subject': self.owner})
+        return ugettext(u"Accounting system for %(subject)s") % {'subject': self.owner}
     
     ## operator overloading methods
     def __getitem__(self, path):
@@ -564,7 +564,7 @@ class Account(models.Model):
         return self.entry_set.all().order_by('-transaction__date',)
     
     def __unicode__(self):
-        return _("Account %(path)s owned by %(subject)s") % {'path':self.path, 'subject':self.owner}
+        return ugettext("Account %(path)s owned by %(subject)s") % {'path':self.path, 'subject':self.owner}
     
     # model-level custom validation goes here
     def clean(self):
@@ -573,36 +573,36 @@ class Account(models.Model):
             try:
                 assert self.system == self.parent.system
             except AssertionError:
-                raise ValidationError(_(u"This account and its parent belong to different accounting systems."))
+                raise ValidationError(ugettext(u"This account and its parent belong to different accounting systems."))
         ## check that stock-like accounts (assets, liabilities) are not mixed with flux-like ones (incomes, expenses)
         # a stock-like account's parent must be a stock-like account (or the root account) 
         if self.is_stock:
             try:
                 assert self.parent.is_stock or self.parent.is_root  
             except AssertionError:
-                raise ValidationError(_(u"A stock-like account's parent must be a stock-like account (or the root account)"))
+                raise ValidationError(ugettext(u"A stock-like account's parent must be a stock-like account (or the root account)"))
         # a flux-like account's parent must be a flux-like account (or the root account) 
         if self.is_flux:
             try:
                 assert self.parent.is_flux or self.parent.is_root  
             except AssertionError:
-                raise ValidationError(_(u"A flux-like account's parent must be a flux-like account (or the root account)"))      
+                raise ValidationError(ugettext(u"A flux-like account's parent must be a flux-like account (or the root account)"))      
         ## check that root accounts (and only those) have ``name=''``
         if self.is_root:
             try:
                 assert self.name == ''  
             except AssertionError:
-                raise ValidationError(_(u"A root account's name must be set to the empty string"))
+                raise ValidationError(ugettext(u"A root account's name must be set to the empty string"))
         
         if self.name == '':
             try:
                 assert self.is_root  
             except AssertionError:
-                raise ValidationError(_(u"A root account's name must be set to the empty string"))      
+                raise ValidationError(ugettext(u"A root account's name must be set to the empty string"))      
               
         ## account names can't contain ``ACCOUNT_PATH_SEPARATOR``
         if ACCOUNT_PATH_SEPARATOR in self.name:
-            raise ValidationError(_(u"Account names can't contain %s" % ACCOUNT_PATH_SEPARATOR))
+            raise ValidationError(ugettext(u"Account names can't contain %s") % ACCOUNT_PATH_SEPARATOR)
                 
     def save(self, *args, **kwargs):
         # perform model validation
@@ -684,7 +684,7 @@ class CashFlow(models.Model):
     def clean(self):
         ## check that ``account`` is stock-like
         if not self.account.is_stock:
-            raise ValidationError(_(u"Only stock-like accounts may represent cash-flows."))     
+            raise ValidationError(ugettext(u"Only stock-like accounts may represent cash-flows."))     
     
     def save(self, *args, **kwargs):
         # perform model validation
@@ -769,22 +769,22 @@ class Split(models.Model):
             try:
                 assert not self.entry_point
             except AssertionError:
-                raise ValidationError(_(u"If no exit-point is set for a split, no entry-point must be set, either."))      
+                raise ValidationError(ugettext(u"If no exit-point is set for a split, no entry-point must be set, either."))      
         ## ``entry_point`` must be a flux-like account
         if not self.entry_point.is_flux:
-                raise ValidationError(_(u"Entry-points must be flux-like accounts"))
+                raise ValidationError(ugettext(u"Entry-points must be flux-like accounts"))
         ## ``exit_point`` must be a flux-like account
         if not self.exit_point.is_flux:
-                raise ValidationError(_(u"Exit-points must be flux-like accounts"))
+                raise ValidationError(ugettext(u"Exit-points must be flux-like accounts"))
         ## ``target`` must be a stock-like account
         if not self.target.account.is_stock:
-                raise ValidationError(_(u"Target must be a stock-like account"))
+                raise ValidationError(ugettext(u"Target must be a stock-like account"))
         ## ``entry_point`` must belongs to the same accounting system as ``target`` 
         if self.entry_point:
             try:
                 assert self.entry_point.system == self.target.system
             except AssertionError:
-                raise ValidationError(_(u"Entry-point and target accounts must belong to the same accounting system"))            
+                raise ValidationError(ugettext(u"Entry-point and target accounts must belong to the same accounting system"))            
         
     def save(self, *args, **kwargs):
         # perform model validation
@@ -902,7 +902,7 @@ class Transaction(models.Model):
         return set(instances)
 
     def __unicode__(self):
-        return _("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}
+        return ugettext("%(kind)s issued by %(issuer)s at %(date)s") % {'kind' : self.kind, 'issuer' : self.issuer, 'date' : self.date}
     
     # model-level custom validation goes here
     def clean(self):
@@ -914,13 +914,13 @@ class Transaction(models.Model):
         try:
             assert sum([flow.amount for flow in flows]) == 0
         except AssertionError:
-            raise ValidationError(_(u"The law of conservation of money is not satisfied for this transaction"))    
+            raise ValidationError(ugettext(u"The law of conservation of money is not satisfied for this transaction"))    
         ## check that exit-points belong to the same accounting system as the source account
         for split in self.splits:
             try:
                 assert split.exit_point.system == self.source.system
             except AssertionError:
-                raise ValidationError(_(u"Exit-points must belong to the same accounting system as the source account"))        
+                raise ValidationError(ugettext(u"Exit-points must belong to the same accounting system as the source account"))        
         ## for internal transactions, check that target accounts belong 
         ## to the same accounting system as the source account
         if self.is_internal:
@@ -928,7 +928,7 @@ class Transaction(models.Model):
                 try:
                     assert split.target.system == self.source.system
                 except AssertionError:
-                    msg = _(u"For internal splits, target accounts must belong to the same accounting system as the source account")
+                    msg = ugettext(u"For internal splits, target accounts must belong to the same accounting system as the source account")
                     raise ValidationError(msg)
         ## check that no account involved in this transaction is a placeholder one
         involved_accounts = [self.source.account]
@@ -938,7 +938,7 @@ class Transaction(models.Model):
             try:
                 assert not account.placeholder 
             except AssertionError:
-                raise ValidationError(_(u"Placeholder accounts can't directly contain transactions, only sub-accounts"))
+                raise ValidationError(ugettext(u"Placeholder accounts can't directly contain transactions, only sub-accounts"))
         
     def save(self, *args, **kwargs):
         # perform model validation
@@ -1124,7 +1124,7 @@ class Invoice(models.Model):
         return self.net_amount + self.taxes  
     
     def __unicode__(self):
-        return _("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s"\
+        return ugettext("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s"\
                  % {'issuer' : self.issuer, 'recipient' : self.recipient, 'issue_date' : self.issue_date} )
     
     

@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext, ugettext_lazy as _
 
 from simple_accounting.exceptions import MalformedTransaction
 from simple_accounting.fields import CurrencyField    
@@ -258,7 +258,7 @@ class Person(models.Model):
         If ``gas`` is not a ``GAS`` model instance, raise ``TypeError``.
         """
         if not isinstance(self, GAS):
-            raise TypeError(_(u"GAS membership can only be tested against a GAS model instance"))
+            raise TypeError(ugettext(u"GAS membership can only be tested against a GAS model instance"))
         return gas in [member.gas for member in self.gas_memberships]        
     
     @property

@@ -351,13 +351,13 @@ class GASMember(models.Model):
         except Account.DoesNotExist:
             person_system.add_account(parent_path='/expenses', name='gas', kind=account_type.expense, is_placeholder=True)
         # base account for expenses related to this GAS membership
-        person_system.add_account(parent_path='/expenses', name=self.gas.uid, kind=account_type.expense, is_placeholder=True)
+        person_system.add_account(parent_path='/expenses/gas', name=self.gas.uid, kind=account_type.expense, is_placeholder=True)
         # recharges
-        person_system.add_account(parent_path='/expenses/' + self.gas.uid, name='recharges', kind=account_type.expense)
+        person_system.add_account(parent_path='/expenses/gas/' + self.gas.uid, name='recharges', kind=account_type.expense)
         # membership fees
-        person_system.add_account(parent_path='/expenses/' + self.gas.uid, name='fees', kind=account_type.expense)
+        person_system.add_account(parent_path='/expenses/gas/' + self.gas.uid, name='fees', kind=account_type.expense)
         ## GAS-side   
-        gas_system.add_account(parent_path='/members', name=self.member.uid, kind=account_type.asset)
+        gas_system.add_account(parent_path='/members', name=self.uid, kind=account_type.asset)
     
     @property
     def issued_orders(self):

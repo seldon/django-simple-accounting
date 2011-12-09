@@ -22,6 +22,13 @@ class AccountingModelException(Exception):
     """
     pass
 
+
+class MalformedPathString(AccountingModelException):
+    """
+    Raised when encountering a malformed path string
+    """
+    pass
+
 class MalformedAccountTree(AccountingModelException):
     """
     Raised if the tree of accounts associated with an accounting system is malformed.

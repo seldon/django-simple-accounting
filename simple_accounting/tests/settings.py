@@ -25,9 +25,10 @@ elif test_engine == "django.db.backends.postgresql_psycopg2":
 
 # list only Django applications required to setup a working test environment
 INSTALLED_APPS = (
-    # other dependencies go here 
     'simple_accounting',
-    'simple_accounting.tests',    
+    'simple_accounting.tests',
+    # other dependencies go here
+    'django.contrib.contenttypes',    
 )
 
 # list only the middleware classes required to setup a working test environment

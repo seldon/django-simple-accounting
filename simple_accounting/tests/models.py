@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext, ugettext_lazy as _
 
 from simple_accounting.exceptions import MalformedTransaction
 from simple_accounting.fields import CurrencyField    
@@ -35,8 +35,8 @@ class PersonAccountingProxy(AccountingProxy):
             raise MalformedTransaction("A person can't pay membership fees to a GAS that (s)he is not member of")
         source_account = self.system['/wallet']
         exit_point = self.system['/expenses/gas/' + gas.uid + '/fees']
-        entry_point = gas.system['/incomes/fees']
-        target_account = gas.system['/cash']
+        entry_point = gas.accounting.system['/incomes/fees']
+        target_account = gas.accounting.system['/cash']
         amount = gas.membership_fee
         description = "Membership fee for year %(year)s" % {'year': year,}
         issuer = person 
@@ -59,8 +59,8 @@ class PersonAccountingProxy(AccountingProxy):
         else:
             source_account = self.system['/wallet']
             exit_point = self.system['/expenses/gas/' + gas.uid + '/recharges']
-            entry_point = gas.system['/incomes/recharges']
-            target_account = gas.system['/members/' + person.uid]
+            entry_point = gas.accounting.system['/incomes/recharges']
+            target_account = gas.accounting.system['/members/' + person.uid]
             description = "GAS member account recharge"
             issuer = person 
             transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='RECHARGE')
@@ -95,8 +95,8 @@ class GasAccountingProxy(AccountingProxy):
         supplier = pact.supplier
         source_account = self.system['/cash']
         exit_point = self.system['/expenses/suppliers/' + supplier.uid]
-        entry_point = supplier.system['/incomes/gas' + gas.uid]
-        target_account = supplier.system['/wallet']
+        entry_point = supplier.accounting.system['/incomes/gas/' + gas.uid]
+        target_account = supplier.accounting.system['/wallet']
         description = "Payment from GAS %(gas)s to supplier %(supplier)s" % {'gas': gas, 'supplier': supplier,}
         issuer = gas 
         transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='PAYMENT')
@@ -228,8 +228,8 @@ class SupplierAccountingProxy(AccountingProxy):
         
         source_account = self.system['/wallet']
         exit_point = self.system['/incomes/gas/' + gas.uid]
-        entry_point = gas.system['/expenses/suppliers/' + supplier.uid] 
-        target_account = gas.system['/cash']
+        entry_point = gas.accounting.system['/expenses/suppliers/' + supplier.uid] 
+        target_account = gas.accounting.system['/cash']
         description = "Refund from supplier %(supplier)s to GAS %(gas)s" % {'gas': gas, 'supplier': supplier,}
         issuer = supplier 
         transaction = register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, kind='REFUND')
@@ -245,9 +245,12 @@ class Person(models.Model):
 
     accounting = AccountingDescriptor(PersonAccountingProxy)
     
+    def __unicode__(self):
+        return self.full_name
+    
     def setup_accounting(self):
         self.subject.init_accounting_system()
-        system = self.accounting_system
+        system = self.accounting.system
         # create a generic asset-type account (a sort of "virtual wallet")
         system.add_account(parent_path='/', name='wallet', kind=account_type.asset)  
        
@@ -258,7 +261,7 @@ class Person(models.Model):
         If ``gas`` is not a ``GAS`` model instance, raise ``TypeError``.
         """
         if not isinstance(self, GAS):
-            raise TypeError(_(u"GAS membership can only be tested against a GAS model instance"))
+            raise TypeError(ugettext(u"GAS membership can only be tested against a GAS model instance"))
         return gas in [member.gas for member in self.gas_memberships]        
     
     @property
@@ -271,7 +274,7 @@ class Person(models.Model):
     
     @property
     def full_name(self):
-        return self.name + self.surname
+        return ' '.join((self.name, self.surname))
     
     @property
     def gas_memberships(self):
@@ -288,9 +291,12 @@ class GAS(models.Model):
     
     accounting = AccountingDescriptor(GasAccountingProxy)
     
+    def __unicode__(self):
+        return self.name
+    
     def setup_accounting(self):
         self.subject.init_accounting_system()
-        system = self.accounting_system
+        system = self.accounting.system
         ## setup a base account hierarchy
         # GAS's cash       
         system.add_account(parent_path='/', name='cash', kind=account_type.asset) 
@@ -330,9 +336,12 @@ class GASMember(models.Model):
     person = models.ForeignKey(Person, related_name='gas_membership_set')
     gas = models.ForeignKey(GAS)
     
+    def __unicode__(self):
+        return u"Member %(person)s of GAS %(gas)s" % {'person': self.person, 'gas': self.gas}
+    
     def setup_accounting(self):
-        person_system = self.person.subject.accounting_system
-        gas_system = self.gas.subject.accounting_system
+        person_system = self.person.accounting.system
+        gas_system = self.gas.accounting.system
         
         ## account creation
         ## Person-side
@@ -342,13 +351,13 @@ class GASMember(models.Model):
         except Account.DoesNotExist:
             person_system.add_account(parent_path='/expenses', name='gas', kind=account_type.expense, is_placeholder=True)
         # base account for expenses related to this GAS membership
-        person_system.add_account(parent_path='/expenses/', name=self.gas.uid, kind=account_type.expense, is_placeholder=True)
+        person_system.add_account(parent_path='/expenses/gas', name=self.gas.uid, kind=account_type.expense, is_placeholder=True)
         # recharges
-        person_system.add_account(parent_path='/expenses/' + self.gas.uid, name='recharges', kind=account_type.expense)
+        person_system.add_account(parent_path='/expenses/gas/' + self.gas.uid, name='recharges', kind=account_type.expense)
         # membership fees
-        person_system.add_account(parent_path='/expenses/' + self.gas.uid, name='fees', kind=account_type.expense)
+        person_system.add_account(parent_path='/expenses/gas/' + self.gas.uid, name='fees', kind=account_type.expense)
         ## GAS-side   
-        gas_system.add_account(parent_path='/members', name=self.member.uid, kind=account_type.asset)
+        gas_system.add_account(parent_path='/members', name=self.uid, kind=account_type.asset)
     
     @property
     def issued_orders(self):
@@ -372,9 +381,12 @@ class Supplier(models.Model):
     
     accounting = AccountingDescriptor(SupplierAccountingProxy)
     
+    def __unicode__(self):
+        return self.name
+    
     def setup_accounting(self):
         self.subject.init_accounting_system()
-        system = self.accounting_system
+        system = self.accounting.system
         ## setup a base account hierarchy   
         # a generic asset-type account (a sort of "virtual wallet")        
         system.add_account(parent_path='/', name='wallet', kind=account_type.asset)  
@@ -393,33 +405,47 @@ class Supplier(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=128)
-     
+
+    def __unicode__(self):
+        return self.name
+    
 
 class SupplierStock(models.Model):
     supplier = models.ForeignKey(Supplier, related_name='stock_set')
     product = models.ForeignKey(Product, related_name='stock_set')
     price = CurrencyField()
+    
+    def __unicode__(self):
+        return u"%(product)s from supplier %(supplier)s" % {'product': self.product, 'supplier': self.supplier}
+     
      
 ## GAS-Supplier interface
 class GASSupplierSolidalPact(models.Model):
     gas = models.ForeignKey(GAS, related_name='pact_set')
     supplier = models.ForeignKey(Supplier, related_name='pact_set')
+
+    def __unicode__(self):
+        return u"Pact between GAS %(gas)s and supplier %(supplier)s" % {'gas': self.gas, 'supplier': self.supplier}
     
     def setup_accounting(self):
         ## create accounts for logging GAS <-> Supplier transactions
         # GAS-side
-        gas_system = self.gas.subject.accounting_system
+        gas_system = self.gas.accounting.system
         gas_system.add_account(parent_path='/expenses/suppliers', name=self.supplier.uid, kind=account_type.expense)
         # Supplier-side
-        supplier_system = self.supplier.subject.accounting_system
+        supplier_system = self.supplier.accounting.system
         supplier_system.add_account(parent_path='/incomes/gas', name=self.gas.uid, kind=account_type.income)
-
+        
 
 ## Orders
 # GAS -> Supplier   
 class GASSupplierStock(models.Model):
     pact = models.ForeignKey(GASSupplierSolidalPact)
-    stock = models.ForeignKey(SupplierStock)  
+    stock = models.ForeignKey(SupplierStock)
+    
+    def __unicode__(self):
+        return u"Product %(product)s from supplier %(supplier)s available to GAS %(gas)s" \
+            % {'gas': self.pact.gas, 'supplier': self.pact.supplier, 'product': self.stock.product}  
     
 
 class GASSupplierOrder(models.Model):
@@ -440,6 +466,10 @@ class GASSupplierOrder(models.Model):
     # workflow management
     status = models.IntegerField(choices=SUPPLIER_ORDER_STATUS_CHOICES)
     invoice = models.ForeignKey(Invoice, null=True, blank=True)
+    
+    def __unicode__(self):
+        return u"Order from GAS %(gas)s to supplier %(supplier)s" \
+            % {'gas': self.pact.gas, 'supplier': self.pact.supplier}  
     
     @property
     def orderable_products(self):
@@ -514,6 +544,10 @@ class GASMemberOrder(models.Model):
     withdrawn_amount = models.PositiveIntegerField()
     # workflow management
     status = models.IntegerField(choices=MEMBER_ORDER_STATUS_CHOICES)
+    
+    def __unicode__(self):
+        return u"Order from member %(member)s to GAS %(gas)s" \
+            % {'member': self.purchaser, 'gas': self.purchaser.gas}  
     
     @property
     def supplier_order(self):

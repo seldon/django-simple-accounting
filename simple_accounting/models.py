@@ -18,7 +18,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.utils.translation import ugettext_lazy as _, ugettext
+from django.utils.translation import ugettext, ugettext_lazy as _
 from django.core.exceptions import ValidationError
 
 from django.contrib.contenttypes.models import ContentType
@@ -27,7 +27,7 @@ from django.contrib.contenttypes import generic
 from simple_accounting.consts import ACCOUNT_PATH_SEPARATOR
 from simple_accounting.fields import CurrencyField
 from simple_accounting.managers import AccountManager, TransactionManager
-from simple_accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation
+from simple_accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation, MalformedPathString
 
 from datetime import datetime
 
@@ -67,7 +67,7 @@ class Subject(models.Model):
             raise AttributeError(ugettext(u"No accounting system has been setup for this subject %s") % self)
     
     def __unicode__(self):
-        return ugettext(u"Economic subject: %(instance)s") % {'instance':self.instance}
+        return ugettext(u"%(instance)s as an economic subject") % {'instance':self.instance}
         
     def init_accounting_system(self):
         """
@@ -327,13 +327,14 @@ class AccountSystem(models.Model):
     # the root account of this system
     @property
     def root(self):
+        # caching
         if not getattr(self,'_root', None):
             for account in self.accounts:
                 if account.is_root: 
                     self._root = account
                     return self._root
             # if we arrived here, no root account was created for this accounting system !
-            raise MalformedAccountTree(ugettext(u"No root account was created for this account system ! %s") % self)
+            raise MalformedAccountTree(ugettext(u"No root account was created for this account system: %s") % self)
         return self._root
     
     @property
@@ -358,7 +359,7 @@ class AccountSystem(models.Model):
         return total_amount
 
     def __unicode__(self):
-        return ugettext(u"Accounting system for %(subject)s" % {'subject': self.owner})
+        return ugettext(u"Accounting system for %(subject)s") % {'subject': self.owner}
     
     ## operator overloading methods
     def __getitem__(self, path):
@@ -369,7 +370,7 @@ class AccountSystem(models.Model):
         If no account exists at that location, raise ``Account.DoesNotExist``.
         
         If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
-        raise ``ValueError``.
+        raise ``MalformedPathString``.
     
         Path string syntax 
         ==================    
@@ -380,26 +381,13 @@ class AccountSystem(models.Model):
         
         account = self.get_account_from_path(path)
         return account
-    
-    def __setitem__(self, path, account):
-        """
-        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
-        and an ``Account`` instance; add that account to the children of the account living at that path location.
-          
-        If the given path location is invalid (see ``__getitem__``'s docstring fo details), 
-        or ``account`` is not a valid ``Account`` instance, raise ``ValueError`.
-        
-        If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``. 
-        """ 
-        parent_account = self.get_account_from_path(path)
-        parent_account.add_child(account)   
-    
+     
     @staticmethod
     def _validate_account_path(path):
         if not path.startswith(ACCOUNT_PATH_SEPARATOR):
-            raise ValueError("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
+            raise MalformedPathString("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
         elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > len(ACCOUNT_PATH_SEPARATOR):
-            raise ValueError("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
+            raise MalformedPathString("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
         
     def get_account_from_path(self, path):
         """
@@ -408,14 +396,14 @@ class AccountSystem(models.Model):
         If no account exists at that location, raise ``Account.DoesNotExist``.
         
         If ``path`` is an invalid string representation of a path in a tree of accounts (see below), 
-        raise ``ValueError``.  
+        raise ``MalformedPathString``.  
         
         Path string syntax 
         ==================    
 
         A valid path string must begin with a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence; it must end with a string
         *different* from ``ACCOUNT_PATH_SEPARATOR`` (unless the path string is just ``ACCOUNT_PATH_SEPARATOR``). 
-        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names
+        Path components are separated by a single ``ACCOUNT_PATH_SEPARATOR`` string occurrence, and they represent account names.
         """
 
         path = path.strip() # strip leading and trailing whitespaces
@@ -454,7 +442,7 @@ class AccountSystem(models.Model):
         ``is_placeholder``
             A boolean flag specifying if this account is to be considered a placeholder
             
-        If the given path location is invalid (see ``__getitem__``'s docstring fo details), raise ``ValueError``.  
+        If the given path location is invalid (see ``__getitem__``'s docstring fo details), raise ``MalformedPathString``.  
         
         If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``.
         """
@@ -609,7 +597,7 @@ class Account(models.Model):
               
         ## account names can't contain ``ACCOUNT_PATH_SEPARATOR``
         if ACCOUNT_PATH_SEPARATOR in self.name:
-            raise ValidationError(ugettext(u"Account names can't contain %s" % ACCOUNT_PATH_SEPARATOR))
+            raise ValidationError(ugettext(u"Account names can't contain %s") % ACCOUNT_PATH_SEPARATOR)
                 
     def save(self, *args, **kwargs):
         # perform model validation
@@ -632,23 +620,22 @@ class Account(models.Model):
         children = Account.objects.get(parent=self)
         return children
     
-    def add_child(self, account):
+    def add_child(self, name, kind=None, is_placeholder=False):
         """
-        Add ``account`` to this account's children accounts.
-          
-        If ``account`` is not a valid ``Account`` instance raise ``ValueError`` 
+        Add a child account to this account.
         
-        If this account already has a child account named as the given account instance, raise ``InvalidAccountingOperation``. 
+        If this account already has a child named ``name``, raise ``InvalidAccountingOperation``.
+        
+        If child account's type is not specified, assume that of its parent.
         """
-        if not isinstance(account, Account):
-            raise ValueError("You can only add an ``Account`` instance as a child of another account")
+        # if child's account type is not specified, use that of its parent 
+        kind = kind or self.kind
         try: 
-            self.get_child(name=account.name)
+            self.get_child(name=name)
         except Account.DoesNotExist:
-            account.parent = self
-            account.save()
+            self.system.add_account(parent_path=self.path, name=name, kind=kind, is_placeholder=is_placeholder)
         else:
-            raise ValueError("A child account already exists with name %s" % account.name)  
+            raise InvalidAccountingOperation("A child account already exists with name %s" % name)  
     
     class Meta:
         unique_together = ('parent', 'name')
@@ -786,6 +773,7 @@ class Split(models.Model):
             ## ``entry_point`` must be a flux-like account
             if not self.entry_point.is_flux:
                     raise ValidationError(ugettext(u"Entry-points must be flux-like accounts"))
+
         ## ``target`` must be a stock-like account
         if not self.target.account.is_stock:
                 raise ValidationError(ugettext(u"Target must be a stock-like account"))
@@ -941,7 +929,7 @@ class Transaction(models.Model):
                 try:
                     assert split.target.system == self.source.system
                 except AssertionError:
-                    msg = _(u"For internal splits, target accounts must belong to the same accounting system as the source account")
+                    msg = ugettext(u"For internal splits, target accounts must belong to the same accounting system as the source account")
                     raise ValidationError(msg)
         ## check that no account involved in this transaction is a placeholder one
         involved_accounts = [self.source.account]
@@ -1140,7 +1128,7 @@ class Invoice(models.Model):
         return self.net_amount + self.taxes  
     
     def __unicode__(self):
-        return _("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s"\
+        return ugettext("Invoice issued by %(issuer)s to %(recipient)s on date %(issue_date)s"\
                  % {'issuer' : self.issuer, 'recipient' : self.recipient, 'issue_date' : self.issue_date} )
     
     

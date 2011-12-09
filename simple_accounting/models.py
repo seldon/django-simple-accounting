@@ -378,21 +378,7 @@ class AccountSystem(models.Model):
         
         account = self.get_account_from_path(path)
         return account
-    
-    def __setitem__(self, path, account):
-        """
-        Take a path in an account tree (as a string, with path components separated by ``ACCOUNT_PATH_SEPARATOR``)
-        and an ``Account`` instance; add that account to the children of the account living at that path location.
-          
-        If the given path location is invalid (see ``__getitem__``'s docstring fo details) raise ``MalformedPathString``. 
-        
-        If ``account`` is not a valid ``Account`` instance, raise ``ValueError`.
-        
-        If the parent account has already a child named as the given account instance, raise ``InvalidAccountingOperation``. 
-        """ 
-        parent_account = self.get_account_from_path(path)
-        parent_account.add_child(account)   
-    
+     
     @staticmethod
     def _validate_account_path(path):
         if not path.startswith(ACCOUNT_PATH_SEPARATOR):

@@ -532,23 +532,7 @@ class AccountSystemManipulationTest(TestCase):
         self.assertRaises(InvalidAccountingOperation, self.system.add_account, parent_path='', name='spam', kind=account_type.expense)
         self.assertRaises(InvalidAccountingOperation, self.system.add_account, parent_path='/spam', name='bar', kind=account_type.asset)
         self.assertRaises(InvalidAccountingOperation, self.system.add_account, parent_path='/spam', name='bar', kind=account_type.liability)
-        
-    def testAddAccountByPathOK(self):
-        """If given a valid path string and an ``Account`` instance, add that account under the given location"""
-        pass
-    
-    def testAddAccountByPathFailIfMalformedPathString(self):
-        """If given a malformed path string to the parent account, raise ``MalformedPathString``"""
-        pass
-    
-    def testAddAccountByPathFailIfInvalidAccountInstance(self):
-        """If given an invalid account instance, raise ``ValueError``"""
-        pass
-
-    def testAddAccountByPathFailIfAlreadyExistingChild(self):
-        """If specified parent account has already a child named as the given account instance, raise InvalidAccountingOperation"""
-        pass
-    
+            
     def testAddRootAccountOK(self):
         """Check that adding a root account succeeds if it doesn't already exist"""
         pass

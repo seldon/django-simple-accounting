@@ -372,18 +372,24 @@ class AccountSystemModelTest(TestCase):
     """Tests related to the ``AccountSystem`` model class"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.subject = self.person.subject
+        self.system = self.person.accounting.system
+        self.root = Account.objects.get(system=self.system, parent=None, name='')
+        self.incomes = Account.objects.get(system=self.system, parent=self.root, name='incomes')
+        self.expenses = Account.objects.get(system=self.system, parent=self.root, name='expenses')
     
     def testGetRoot(self):
         """Check that the property ``.root()`` works as advertised """
-        pass   
+        self.assertEqual(self.system.root, self.root)
     
     def testGetAccounts(self):
         """Check that the property ``.accounts()`` works as advertised """
-        pass   
+        self.assertEqual(set(self.system.accounts), set((self.root, self.incomes, self.expenses)))
     
     def testGetTotalAmount(self):
         """Check that the property ``.total_amount()`` works as advertised """
+        # WRITEME
         pass   
  
      
@@ -535,11 +541,13 @@ class AccountSystemManipulationTest(TestCase):
             
     def testAddRootAccountOK(self):
         """Check that adding a root account succeeds if it doesn't already exist"""
-        pass
+        Account.objects.all().delete()
+        self.system.add_root_account()
+        Account.objects.get(system=self.system, parent=None, name='', kind=account_type.root)
     
     def testAddRootAccountFailIfAlreadyExists(self):
         """Check that adding a root account fails if one already exists"""
-        pass
+        self.assertRaises(InvalidAccountingOperation, self.system.add_root_account)
     
     def testAddChildOK(self):
         """Check that adding an account by ``.add_child()`` succeeds if given arguments are valid"""

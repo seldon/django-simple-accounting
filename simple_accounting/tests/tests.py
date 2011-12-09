@@ -551,10 +551,12 @@ class AccountSystemManipulationTest(TestCase):
     
     def testAddChildOK(self):
         """Check that adding an account by ``.add_child()`` succeeds if given arguments are valid"""
+        # WRITEME
         pass
     
     def testAddChildFailIfAlreadyExistingChild(self):
         """If a child with that name already exists, `.add_child()`` should raise InvalidAccountingOperation"""
+        # WRITEME
         pass
     
     
@@ -566,38 +568,47 @@ class AccountModelTest(TestCase):
     
     def testGetBaseType(self):
         """Check that the property ``.base_type`` works as advertised """
+        # WRITEME
         pass   
     
     def testIsStock(self):
         """Check that stock-like accounts are correctly recognized"""
+        # WRITEME
         pass
     
     def testIsFlux(self):
         """Check that flux-like accounts are correctly recognized"""
+        # WRITEME
         pass
     
     def testGetOwner(self):
         """Check that the property ``.owner`` works as advertised"""
+        # WRITEME
         pass
     
     def testGetBalance(self):
         """Check that the property ``.balance`` works as advertised"""
+        # WRITEME
         pass   
        
     def testGetPath(self):
         """Check that the property ``.path`` works as advertised"""
+        # WRITEME
         pass   
     
     def testIsRoot(self):
         """Check that root accounts are correctly recognized"""
+        # WRITEME
         pass
         
     def testGetRoot(self):
         """Check that the property ``.root`` works as advertised"""
+        # WRITEME
         pass   
     
     def testGetLedgerEntries(self):
         """Check that the property ``.ledger_entries`` works as advertised"""
+        # WRITEME
         pass   
     
   
@@ -609,22 +620,27 @@ class AccountModelValidationTest(TestCase):
     
     def testValidationFailIfAccountsBelongToDifferentSystems(self):
         """An account must belong to the same accounting system of its parent, if any"""
+        # WRITEME
         pass
     
     def testValidationFailIfMixingAccountTypes(self):
         """Stock-like accounts cannot be mixed with flux-like ones"""
+        # WRITEME
         pass
 
     def testValidationFailIfRootAccountNameIsNotEmpty(self):
         """Root accounts must have the empty string as their name"""
+        # WRITEME
         pass
 
     def testValidationFailIfNonRootAccountHasEmptyName(self):
         """If an account has an empty string as its name, it must be the root one"""
+        # WRITEME
         pass
 
     def testValidationFailIfAccountNameContainsPathSep(self):
         """Account names can't contain ``ACCOUNT_PATH_SEPARATOR``"""
+        # WRITEME
         pass
 
 
@@ -636,14 +652,17 @@ class CashFlowModelTest(TestCase):
     
     def testIsIncoming(self):
         """Check that incoming flows are correctly recognized"""
+        # WRITEME
         pass
     
     def testIsOutgoing(self):
         """Check that outgoing flows are correctly recognized"""
+        # WRITEME
         pass
     
     def testGetSystem(self):
         """Check that the property ``.system`` works as advertised"""
+        # WRITEME
         pass   
     
     
@@ -655,6 +674,7 @@ class CashFlowModelValidationTest(TestCase):
     
     def testValidationFailIfNotAccountIsStock(self):
         """Only stock-like accounts may represent cash-flows"""
+        # WRITEME
         pass
     
     
@@ -666,18 +686,22 @@ class SplitModelTest(TestCase):
     
     def testIsInternal(self):
         """Check that internal splits are correctly recognized"""
+        # WRITEME
         pass
     
     def testGetTargetSystem(self):
         """Check that the property ``.target_system`` works as advertised"""
+        # WRITEME
         pass   
     
     def testGetAmount(self):
         """Check that the property ``.amount`` works as advertised"""
+        # WRITEME
         pass
     
     def testGetAccounts(self):
         """Check that the property ``.accounts`` works as advertised"""
+        # WRITEME
         pass
     
     
@@ -689,22 +713,27 @@ class SplitModelValidationTest(TestCase):
     
     def testValidationFailIfEntryExitPointNullStatusDiffers(self):
         """If ``exit point`` is null, so must be ``entry_point``"""
+        # WRITEME
         pass
     
     def testValidationFailIfExitPointIsNotFluxLike(self):
         """``exit_point`` must be a flux-like account"""
+        # WRITEME
         pass
     
     def testValidationFailIfEntryPointIsNotFluxLike(self):
         """``entry_point`` must be a flux-like account"""
+        # WRITEME
         pass
     
     def testValidationFailIfTargetIsNotStockLike(self):
         """``target`` must be a stock-like account"""
+        # WRITEME
         pass
     
     def testValidationFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
         """`entry_point`` must belongs to the same accounting system as ``target``"""
+        # WRITEME
         pass
 
 
@@ -716,42 +745,52 @@ class TransactionModelTest(TestCase):
     
     def testGetSplits(self):
         """Check that the property ``.splits`` works as advertised"""
+        # WRITEME
         pass
         
     def testIsSplit(self):
         """Check that split transactions are correctly recognized"""
+        # WRITEME
         pass
     
     def testIsInternal(self):
         """Check that internal transactions are correctly recognized"""
+        # WRITEME
         pass
     
     def testIsSimple(self):
         """Check that simple transactions are correctly recognized"""
+        # WRITEME
         pass
     
     def testGetLedgerEntries(self):
         """Check that the property ``.ledger_entries`` works as advertised"""
+        # WRITEME
         pass
    
     def testGetReferences(self):
         """Check that the property ``.references`` works as advertised"""
+        # WRITEME
         pass
     
     def testSetConfirmedOK(self):
         """Check that a transaction can be confirmed if not already so"""
+        # WRITEME
         pass
     
     def testSetConfirmedFailifAlreadyConfirmed(self):
         """If a transaction had already been confirmed, raise ``InvalidAccountingOperation``"""
+        # WRITEME
         pass
     
     def testAddReference(self):
         """Check that the method ``.add_reference()`` works as advertised"""
+        # WRITEME
         pass
     
     def testAddReferences(self):
         """Check that the method ``.add_references()`` works as advertised"""
+        # WRITEME
         pass
     
 
@@ -763,18 +802,22 @@ class TransactionModelValidationTest(TestCase):
     
     def testValidationFailIfConservationOfMoneyNotSatisfied(self):
         """Check that the *law of conservation of money* is satisfied"""
+        # WRITEME
         pass
     
     def testValidationFailIfExitPointsAndSourceInDifferentAccountingSystems(self):
         """Exit-points must belong to the same accounting system as the source account"""
+        # WRITEME
         pass
     
     def testValidationFailIfSourceAndTargetsInDifferentAccountingSystemsAndInternal(self):
         """For internal splits, source and target accounts must belong to the same accounting system"""
+        # WRITEME
         pass
      
     def testValidationFailIfAnyIsPlaceholder(self):
         """No account involved in a transaction can be a placeholder one"""
+        # WRITEME
         pass   
     
     
@@ -786,6 +829,7 @@ class TransactionReferenceModelTest(TestCase):
     
     def testUniquenessConstraints(self):
         """Check that uniqueness constraints for ``TransactionReference`` are enforced at the DB level"""
+        # WRITEME
         pass
     
     
@@ -797,26 +841,32 @@ class LedgerEntryModelTest(TestCase):
     
     def testGetDate(self):
         """Check that the property ``.date`` works as advertised"""
+        # WRITEME
         pass
     
     def testGetSplit(self):
         """Check that the property ``.split`` works as advertised"""
+        # WRITEME
         pass
     
     def testGetDescription(self):
         """Check that the property ``.description`` works as advertised"""
+        # WRITEME
         pass
         
     def testGetIssuer(self):
         """Check that the property ``.issuer`` works as advertised"""
+        # WRITEME
         pass
     
     def testNextEntryIdForLedger(self):
         """Check that generation of ledger IDs works as expected"""
+        # WRITEME
         pass
     
     def testSaveOverride(self):
         """Check that the ``.save()`` ovveride method works as expected"""
+        # WRITEME
         pass
 
 
@@ -828,6 +878,7 @@ class InvoiceModelTest(TestCase):
     
     def testGetTotalAmount(self):
         """Check that the property ``.total_amount`` works as advertised"""
+        # WRITEME
         pass
     
 
@@ -839,38 +890,47 @@ class AccountingProxyTest(TestCase):
     
     def testGetSubject(self):
         """Check that the subject to which the proxy object is attached can be accessed"""
+        # WRITEME
         pass
     
     def testGetAccountingSystem(self):
         """Check that the accounting system the proxy object refers to can be accessed"""
+        # WRITEME
         pass
     
     def testSubclassing(self):
         """Check that the accounting proxy works even if subclassed"""
+        # WRITEME
         pass
     
     def testGetAccount(self):
         """Check that the property ``.account`` works as advertised"""
+        # WRITEME
         pass
 
     def testPayInvoiceFailIfIssuedToAnotherSubject(self):
         """If ``invoice`` was issued to another subject, raise ``InvalidAccountingOperation``"""
+        # WRITEME
         pass
     
     def testPayInvoiceFailIfGivenInvalidInstance(self):
         """If ``invoice`` isn't an ``Invoice`` model instance, raise ``ValueError``"""
+        # WRITEME
         pass
     
     def testSetInvoicePayedOK(self):
         """Check that the method ``.set_invoice_paid`` works as advertised, if arguments are fine"""
+        # WRITEME
         pass
     
     def testSetInvoicePayedFailIfIssuedByAnotherSubject(self):
         """If ``invoice`` was issued by another subject, raise ``InvalidAccountingOperation``"""
+        # WRITEME
         pass
     
     def testSetInvoicePayedFailIfGivenInvalidInstance(self):
         """If ``invoice`` isn't an ``Invoice`` model instance, raise ``ValueError``"""
+        # WRITEME
         pass
 
     
@@ -882,14 +942,17 @@ class AccountingDescriptorTest(TestCase):
     
     def testGetSucceedOnInstance(self):
         """Check that the ``accounting`` attribute can be accessed from model instances"""
+        # WRITEME
         pass
 
     def testGetFailOnClass(self):
         """Check that the ``accounting`` attribute cannot be accessed from the model class"""
+        # WRITEME
         pass
 
     def testSetFailIfInstance(self):  
         """Check that the ``accounting`` attribute is read-only"""
+        # WRITEME
         pass
 
 
@@ -901,22 +964,27 @@ class QuerySetFromIterableTest(TestCase):
     
     def testReturnValueIsQuerySet(self):
         """``queryset_from_iterable`` should return a ``QuerySet`` instance """
+        # WRITEME
         pass
     
     def testOK(self):
         """If arguments are valid, check that result is as expected"""
+        # WRITEME
         pass
     
     def testEmptyIterable(self):
         """If the iterable is empty, return an ``EmptyQuerySet``"""
+        # WRITEME
         pass
     
     def testFailIfNotIterable(self):
         """If argument is not iterable, raise TypeError"""
+        # WRITEME
         pass
     
     def testFailIfNotInstancesOfTheSameModel(self):
         """If ``iterable`` contains an instance of the wrong model, raise TypeError"""
+        # WRITEME
         pass
 
 
@@ -928,54 +996,67 @@ class RegisterSplitTransactionTest(TestCase):
     
     def testTransactionCreationOK(self):
         """``register_split_transaction()`` should create a new transaction, based on given input"""
+        # WRITEME
         pass
     
     def testLedgerEntriesCreationOK(self):
         """``register_split_transaction()`` should create implied ledger entries"""
+        # WRITEME
         pass
     
     def testReturnValueIsTransaction(self):
         """``register_split_transaction()`` should return the newly created transaction"""
+        # WRITEME
         pass
     
     def testFailIfSourceIsNotStockLike(self):
         """If source account is flux-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfConservationOfMoneyNotSatisfied(self):
         """If provided splits don't satisfy the *law of conservation of money*, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfExitPointsAndSourceInDifferentAccountingSystems(self):
         """If exit-points and source account belong to different accounting systems, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfSourceAndTargetsInDifferentAccountingSystemsAndInternal(self):
         """If transaction is internal and source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
      
     def testFailIfAnyIsPlaceholder(self):
         """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        # WRITEME
         pass   
     
     def testFailIfEntryExitPointNullStatusDiffers(self):
         """If, for a split, exit-point's and entry-point's null statuses are different, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfExitPointIsNotFluxLike(self):
         """If any exit-point is a stock-like account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfEntryPointIsNotFluxLike(self):
         """If any entry-point is a stock-like account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfTargetIsNotStockLike(self):
         """If any target account is not stock-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
         
     def testFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
         """If, for a split, entry-point belongs to a different accounting system than target account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
 
 
@@ -987,46 +1068,57 @@ class RegisterTransactionTest(TestCase):
     
     def testTransactionCreationOK(self):
         """``register_transaction()`` should create a new transaction, based on given input"""
+        # WRITEME
         pass
     
     def testLedgerEntriesCreationOK(self):
         """``register_transaction()`` should create implied ledger entries"""
+        # WRITEME
         pass
     
     def testReturnValueIsTransaction(self):
         """``register_transaction()`` should return the newly created transaction"""
+        # WRITEME
         pass
     
     def testFailIfSourceIsNotStockLike(self):
         """If source account is flux-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfExitPointAndSourceInDifferentAccountingSystems(self):
         """If exit-point and source account belong to different accounting systems, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfAnyIsPlaceholder(self):
         """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        # WRITEME
         pass   
     
     def testFailIfEntryOrExitPointNull(self):
         """If either entry-point or exit-point is ``None``,  raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfExitPointIsNotFluxLike(self):
         """If any exit-point is a stock-like account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfEntryPointIsNotFluxLike(self):
         """If any entry-point is a stock-like account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfTargetIsNotStockLike(self):
         """If any target account is not stock-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
         
     def testFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
         """If entry-point belongs to a different accounting system than target account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
 
@@ -1038,34 +1130,42 @@ class RegisterInternalTransactionTest(TestCase):
     
     def testTransactionCreationOK(self):
         """``register_internal_transaction()`` should create a new transaction, based on given input"""
+        # WRITEME
         pass
     
     def testLedgerEntriesCreationOK(self):
         """``register_internal_transaction()`` should create implied ledger entries"""
+        # WRITEME
         pass
     
     def testReturnValueIsTransaction(self):
         """``register_internal_transaction()`` should return the newly created transaction"""
+        # WRITEME
         pass
     
     def testFailIfSourceIsNotStockLike(self):
         """If source account is flux-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfConservationOfMoneyNotSatisfied(self):
         """If *law of conservation of money* is not satisfied, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfSourceAndTargetsInDifferentAccountingSystems(self):
         """If source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
      
     def testFailIfAnyIsPlaceholder(self):
         """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        # WRITEME
         pass   
        
     def testFailIfTargetIsNotStockike(self):
         """If any target account is not stock-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
         
     
@@ -1077,30 +1177,37 @@ class RegisterSimpleTransactionTest(TestCase):
     
     def testTransactionCreationOK(self):
         """``register_simple_transaction()`` should create a new transaction, based on given input"""
+        # WRITEME
         pass
     
     def testLedgerEntriesCreationOK(self):
         """``register_simple_transaction()`` should create implied ledger entries"""
+        # WRITEME
         pass
     
     def testReturnValueIsTransaction(self):
         """``register_simple_transaction()`` should return the newly created transaction"""
+        # WRITEME
         pass
     
     def testFailIfSourceIsNotStockLike(self):
         """If source account is flux-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfSourceAndTargetsInDifferentAccountingSystems(self):
         """If source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
      
     def testFailIfAnyIsPlaceholder(self):
         """If an involved account is a placeholder one, raise ``MalformedTransaction``"""
+        # WRITEME
         pass   
     
     def testFailIfTargetIsNotStockLike(self):
         """If target account is not stock-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
         
         
@@ -1112,56 +1219,70 @@ class UpdateTransactionTest(TestCase):
     
     def testTransactionUpdateOK(self):
         """``update_transaction()`` should update the given transaction, based on provided input"""
+        # WRITEME
         pass
     
     def testStaleLedgerEntriesDeletionOK(self):
         """``update_transaction()`` should delete stale ledger entries"""
+        # WRITEME
         pass
     
     def testUpdatedLedgerEntriesCreationOK(self):
         """``update_transaction()`` should create implied ledger entries"""
+        # WRITEME
         pass
     
     def testReturnValueIsTransaction(self):
         """``update_transaction()`` should return the update transaction"""
+        # WRITEME
         pass
     
     def testFailIfSourceIsNotStockLike(self):
         """If updated source account is flux-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfConservationOfMoneyNotSatisfied(self):
         """If updated splits don't satisfy the *law of conservation of money*, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfExitPointsAndSourceInDifferentAccountingSystems(self):
         """If updated exit-points and source account belong to different accounting systems, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfSourceAndTargetsInDifferentAccountingSystemsAndInternal(self):
         """If updated transaction is internal and source and target accounts belong to different accounting systems, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
      
     def testFailIfAnyIsPlaceholder(self):
         """If an account involved by the updated transaction is a placeholder one, raise ``MalformedTransaction``"""
+        # WRITEME
         pass   
     
     def testFailIfEntryExitPointNullStatusDiffers(self):
         """If, for an updated split, exit-point's and entry-point's null statuses are different, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfExitPointIsNotFluxLike(self):
         """If any updated exit-point is a stock-like account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfEntryPointIsNotFluxLike(self):
         """If any updated entry-point is a stock-like account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
     
     def testFailIfTargetIsNotStockike(self):
         """If any updated target account is not stock-like, raise ``MalformedTransaction``"""
+        # WRITEME
         pass
         
     def testFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
         """If, for an updated split, entry-point belongs to a different accounting system than target account, raise ``MalformedTransaction``"""
+        # WRITEME
         pass    

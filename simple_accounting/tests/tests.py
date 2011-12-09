@@ -545,10 +545,6 @@ class AccountSystemManipulationTest(TestCase):
         """Check that adding an account by ``.add_child()`` succeeds if given arguments are valid"""
         pass
     
-    def testAddChildFailInvalidAccountInstance(self):
-        """If given an invalid account instance to ``.add_child()``, raise ``ValueError``"""
-        pass
-    
     def testAddChildFailIfAlreadyExistingChild(self):
         """If a child with that name already exists, `.add_child()`` should raise InvalidAccountingOperation"""
         pass

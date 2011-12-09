@@ -614,23 +614,22 @@ class Account(models.Model):
         children = Account.objects.get(parent=self)
         return children
     
-    def add_child(self, account):
+    def add_child(self, name, kind=None, is_placeholder=False):
         """
-        Add ``account`` to this account's children accounts.
-          
-        If ``account`` is not a valid ``Account`` instance raise ``ValueError`` 
+        Add a child account to this account.
         
-        If this account already has a child account named as the given account instance, raise ``InvalidAccountingOperation``. 
+        If this account already has a child named ``name``, raise ``InvalidAccountingOperation``.
+        
+        If child account's type is not specified, assume that of its parent.
         """
-        if not isinstance(account, Account):
-            raise ValueError("You can only add an ``Account`` instance as a child of another account")
+        # if child's account type is not specified, use that of its parent 
+        kind = kind or self.kind
         try: 
-            self.get_child(name=account.name)
+            self.get_child(name=name)
         except Account.DoesNotExist:
-            account.parent = self
-            account.save()
+            self.system.add_account(parent_path=self.path, name=name, kind=kind, is_placeholder=is_placeholder)
         else:
-            raise InvalidAccountingOperation("A child account already exists with name %s" % account.name)  
+            raise InvalidAccountingOperation("A child account already exists with name %s" % name)  
     
     class Meta:
         unique_together = ('parent', 'name')

@@ -17,7 +17,7 @@
 from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType 
 
-from simple_accounting.models import account_type
+from simple_accounting.models import account_type, BasicAccountTypeDict, AccountType
 from simple_accounting.models import Subject, AccountSystem, Account
 from simple_accounting.exceptions import MalformedPathString, InvalidAccountingOperation, MalformedAccountTree, MalformedTransaction, SubjectiveAPIError
 
@@ -208,19 +208,49 @@ class SubjectModelTest(TestCase):
     """Tests related to the ``Subject`` model class"""
     
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        # sweep away auto-created ``Subject`` instances        
+        Subject.objects.all().delete()
+        # sweep away auto-created ``Subject`` instances
+        AccountSystem.objects.all().delete()
+        self.subject = Subject.objects.create(content_type=ContentType.objects.get_for_model(self.person), object_id=self.person.pk)
+        self.system = AccountSystem.objects.create(owner=self.subject)
     
     def testAccountingSystemAccessOK(self):
         """Check that a subject's accounting system (if any) can be accessed from the ``Subject`` instance"""
-        pass
+        self.assertEqual(self.subject.accounting_system, self.system)
     
     def testAccountingSystemAccessFail(self):
-        """If an accounting system for a subject hasn't been created yet, raise AttributeError"""
-        pass
+        """If an accounting system for a subject hasn't been created yet, raise ``AttributeError``"""
+        AccountSystem.objects.all().delete()
+
+        try:
+            self.subject.accounting_system
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError 
     
     def testAccountingSystemInitialization(self):
         """Check that setup tasks needed for initializing an accounting system are performed when requested"""
-        pass
+        AccountSystem.objects.all().delete()
+        Account.objects.all().delete()
+        
+        self.subject.init_accounting_system()
+        
+        system = AccountSystem.objects.get(owner=self.subject)
+        
+        root = Account.objects.get(system=system, parent=None, name='')
+        self.assertEqual(root.kind, account_type.root)
+        self.assertEqual(root.is_placeholder, True)
+        
+        incomes = Account.objects.get(system=system, parent=root, name='incomes')
+        self.assertEqual(incomes.kind, account_type.income)
+        self.assertEqual(incomes.is_placeholder, False)
+        
+        expenses = Account.objects.get(system=system, parent=root, name='expenses')
+        self.assertEqual(expenses.kind, account_type.expense)
+        self.assertEqual(expenses.is_placeholder, False)    
     
 
 class AccountTypeModelTest(TestCase):
@@ -230,24 +260,70 @@ class AccountTypeModelTest(TestCase):
         pass
     
     def testIsStock(self):
-        """Check that stock-like accounts are correctly recognized"""
-        pass   
+        """Check that stock-like account types are correctly recognized"""
+        
+        for at in (account_type.asset, account_type.liability):
+            self.assertEqual(at.is_stock, True)
+        
+        for at in (account_type.root, account_type.income, account_type.expense):
+            self.assertEqual(at.is_stock, False)          
     
     def testIsFlux(self):
-        """Check that flux-like accounts are correctly recognized"""
-        pass   
- 
+        """Check that flux-like account types are correctly recognized"""
+    
+        for at in (account_type.root, account_type.asset, account_type.liability):
+            self.assertEqual(at.is_flux, False)
+        
+        for at in (account_type.income, account_type.expense):
+            self.assertEqual(at.is_flux, True)          
+       
      
     def testGetAccounts(self):
         """Check that the property ``.accounts`` works as advertised"""
-        pass   
+        person = Person.objects.create(name="Mario", surname="Rossi")
+        gas = GAS.objects.create(name="GASteropode")
+        supplier = Supplier.objects.create(name="GoodCompany")
+        
+        # Person account-tree
+        person_system = person.accounting.system
+        person_root = Account.objects.get(system=person_system, parent=None, name='')
+        person_incomes = Account.objects.get(system=person_system, parent=person_root, name='incomes')
+        person_expenses = Account.objects.get(system=person_system, parent=person_root, name='expenses')
+        person_wallet = Account.objects.get(system=person_system, parent=person_root, name='wallet')
+        
+        # GAS account-tree
+        gas_system = gas.accounting.system
+        gas_root = Account.objects.get(system=gas_system, parent=None, name='')
+        gas_incomes = Account.objects.get(system=gas_system, parent=gas_root, name='incomes')
+        gas_expenses = Account.objects.get(system=gas_system, parent=gas_root, name='expenses')
+        gas_cash = Account.objects.get(system=gas_system, parent=gas_root, name='cash')
+        gas_members = Account.objects.get(system=gas_system, parent=gas_root, name='members')
+        gas_fees = Account.objects.get(system=gas_system, parent=gas_incomes, name='fees')
+        gas_recharges = Account.objects.get(system=gas_system, parent=gas_incomes, name='recharges')
+        gas_suppliers = Account.objects.get(system=gas_system, parent=gas_expenses, name='suppliers')
+        
+        # Supplier account-tree
+        supplier_system = supplier.accounting.system
+        supplier_root = Account.objects.get(system=supplier_system, parent=None, name='')
+        supplier_incomes = Account.objects.get(system=supplier_system, parent=supplier_root, name='incomes')
+        supplier_expenses = Account.objects.get(system=supplier_system, parent=supplier_root, name='expenses')
+        supplier_wallet = Account.objects.get(system=supplier_system, parent=supplier_root, name='wallet')
+        supplier_gas = Account.objects.get(system=supplier_system, parent=supplier_incomes, name='gas')      
+        
+        self.assertEqual(set(account_type.root.accounts), set((person_root, gas_root, supplier_root)))
+        self.assertEqual(set(account_type.income.accounts), set((person_incomes, gas_incomes, gas_fees, gas_recharges, supplier_incomes, supplier_gas)))
+        self.assertEqual(set(account_type.expense.accounts), set((person_expenses, gas_expenses, gas_suppliers, supplier_expenses)))
+        self.assertEqual(set(account_type.asset.accounts), set((person_wallet, gas_cash, gas_members, supplier_wallet)))
+        self.assertEqual(set(account_type.liability.accounts), set())
  
     def testNormalizeAccountTypeName(self):
         """Check that the method ``.normalize_account_type_name()`` works as advertised"""
+        # WRITEME
         pass   
  
     def testSaveOverride(self):
         """Check that the ``.save()`` ovveride method works as expected"""
+        # WRITEME
         pass   
 
 
@@ -255,24 +331,42 @@ class BasicAccountTypesAccessTest(TestCase):
     """Check that the access API for basic account types works as expected"""
     
     def setUp(self):
-        pass
+        self.d = BasicAccountTypeDict()
     
     def testBasicAccountTypeDictAccessOK(self):
         """If given the name of a basic account type, ``BasicAccountTypeDict`` returns the corresponding model instance"""
-        pass
+        self.assertEqual(self.d['ROOT'], account_type.root)
+        self.assertEqual(self.d['INCOME'], account_type.income)
+        self.assertEqual(self.d['EXPENSE'], account_type.expense)
+        self.assertEqual(self.d['ASSET'], account_type.asset)
+        self.assertEqual(self.d['LIABILITY'], account_type.liability)
     
     def testBasicAccountTypeDictAccessFail(self):
         """If given an invalid name, ``BasicAccountTypeDict`` raises KeyError"""
-        pass    
+        try:
+            self.d['FOO']
+        except KeyError:
+            pass
+        else:
+            raise AssertionError 
     
     def testBasicAccountTypeDotAccessOK(self):
         """Basic account types' instances should be accessible as object attributes"""
-        pass    
+        self.assertEqual(AccountType.objects.get(name='ROOT'), account_type.root)
+        self.assertEqual(AccountType.objects.get(name='INCOME'), account_type.income)
+        self.assertEqual(AccountType.objects.get(name='EXPENSE'), account_type.expense)
+        self.assertEqual(AccountType.objects.get(name='ASSET'), account_type.asset)
+        self.assertEqual(AccountType.objects.get(name='LIABILITY'), account_type.liability)
      
     def testBasicAccountTypeDotAccessFail(self):
-        """When accessing a basic account type as an attribute, a wrong name should raise an AttributeError"""
-        pass    
-
+        """When accessing a basic account type as an attribute, a wrong name should raise an ``AttributeError``"""
+        try:
+            account_type.foo
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError 
+    
 
 class AccountSystemModelTest(TestCase):
     """Tests related to the ``AccountSystem`` model class"""
@@ -301,6 +395,8 @@ class AccountSystemTreeNavigationTest(TestCase):
         self.subject = self.person.subject
         self.system = self.person.accounting.system
         # sweep away auto-created accounts
+        Account.objects.all().delete()
+        # setup a test account system
         self.root = Account.objects.create(system=self.system, parent=None, name='', kind=account_type.root, is_placeholder=True)
         self.spam = Account.objects.create(system=self.system, parent=self.root, name='spam', kind=account_type.asset)
         self.cheese = Account.objects.create(system=self.system, parent=self.root, name='cheese', kind=account_type.income)

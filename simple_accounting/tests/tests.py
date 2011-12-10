@@ -551,40 +551,68 @@ class AccountSystemManipulationTest(TestCase):
     
     def testAddChildOK(self):
         """Check that adding an account by ``.add_child()`` succeeds if given arguments are valid"""
-        # WRITEME
-        pass
+        self.spam.add_child('ham', kind=account_type.asset)
+        ham = Account.objects.get(system=self.system, parent=self.spam, name='ham', kind=account_type.asset)
+        ham.delete()
+        
+        self.spam.add_child('ham', kind=account_type.liability)
+        Account.objects.get(system=self.system, parent=self.spam, name='ham', kind=account_type.liability)
+        ham.delete()
+        
+        # check that child's account type defaults to that of its parent
+        self.spam.add_child('ham')
+        Account.objects.get(system=self.system, parent=self.spam, name='ham', kind=account_type.asset)
     
     def testAddChildFailIfAlreadyExistingChild(self):
         """If a child with that name already exists, `.add_child()`` should raise InvalidAccountingOperation"""
-        # WRITEME
-        pass
+        self.assertRaises(InvalidAccountingOperation, self.spam.add_child, 'bar', kind=account_type.asset)
+        self.assertRaises(InvalidAccountingOperation, self.spam.add_child, 'bar', kind=account_type.liability)
     
     
 class AccountModelTest(TestCase):
     """Tests related to the ``Account`` model class"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.subject = self.person.subject
+        self.system = self.person.accounting.system
+        # sweep away auto-created accounts
+        Account.objects.all().delete()
+        # setup a test account system
+        self.root = Account.objects.create(system=self.system, parent=None, name='', kind=account_type.root, is_placeholder=True)
+        self.spam = Account.objects.create(system=self.system, parent=self.root, name='spam', kind=account_type.asset)
+        self.cheese = Account.objects.create(system=self.system, parent=self.root, name='cheese', kind=account_type.income)
+        self.bar = Account.objects.create(system=self.system, parent=self.spam, name='bar', kind=account_type.asset)
+        self.baz = Account.objects.create(system=self.system, parent=self.spam, name='baz', kind=account_type.liability)
     
     def testGetBaseType(self):
         """Check that the property ``.base_type`` works as advertised """
-        # WRITEME
-        pass   
+        self.assertEqual(self.root.base_type, AccountType.ROOT)   
+        self.assertEqual(self.spam.base_type, AccountType.ASSET)
+        self.assertEqual(self.cheese.base_type, AccountType.INCOME)
+        self.assertEqual(self.bar.base_type, AccountType.ASSET)
+        self.assertEqual(self.baz.base_type, AccountType.LIABILITY)
     
     def testIsStock(self):
         """Check that stock-like accounts are correctly recognized"""
-        # WRITEME
-        pass
+        self.assertEqual(self.root.is_stock, False)   
+        self.assertEqual(self.spam.is_stock, True)
+        self.assertEqual(self.cheese.is_stock, False)
+        self.assertEqual(self.bar.is_stock, True)
+        self.assertEqual(self.baz.is_stock, True)
     
     def testIsFlux(self):
         """Check that flux-like accounts are correctly recognized"""
-        # WRITEME
-        pass
+        self.assertEqual(self.root.is_flux, False)   
+        self.assertEqual(self.spam.is_flux, False)
+        self.assertEqual(self.cheese.is_flux, True)
+        self.assertEqual(self.bar.is_flux, False)
+        self.assertEqual(self.baz.is_flux, False)
     
     def testGetOwner(self):
         """Check that the property ``.owner`` works as advertised"""
-        # WRITEME
-        pass
+        for account in Account.objects.all():
+            self.assertEqual(account.owner, self.subject)
     
     def testGetBalance(self):
         """Check that the property ``.balance`` works as advertised"""
@@ -593,18 +621,28 @@ class AccountModelTest(TestCase):
        
     def testGetPath(self):
         """Check that the property ``.path`` works as advertised"""
-        # WRITEME
-        pass   
-    
+        self.assertEqual(self.root.path, '/')   
+        self.assertEqual(self.spam.path, '/spam')
+        self.assertEqual(self.cheese.path, '/cheese')
+        self.assertEqual(self.bar.path, '/spam/bar')
+        self.assertEqual(self.baz.path, '/spam/bar')
+        
     def testIsRoot(self):
         """Check that root accounts are correctly recognized"""
-        # WRITEME
-        pass
+        self.assertEqual(self.root.is_root, True)   
+        self.assertEqual(self.spam.is_root, False)
+        self.assertEqual(self.cheese.is_root, False)
+        self.assertEqual(self.bar.is_root, False)
+        self.assertEqual(self.baz.is_root, False)
+    
         
     def testGetRoot(self):
         """Check that the property ``.root`` works as advertised"""
-        # WRITEME
-        pass   
+        self.assertEqual(self.root.root, self.root)   
+        self.assertEqual(self.spam.root, self.root)
+        self.assertEqual(self.cheese.root, self.root)
+        self.assertEqual(self.bar.root, self.root)
+        self.assertEqual(self.baz.root, self.root)
     
     def testGetLedgerEntries(self):
         """Check that the property ``.ledger_entries`` works as advertised"""

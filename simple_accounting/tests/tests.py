@@ -18,12 +18,13 @@ from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType 
 
 from simple_accounting.models import account_type, BasicAccountTypeDict, AccountType
-from simple_accounting.models import Subject, AccountSystem, Account
+from simple_accounting.models import Subject, AccountSystem, Account, CashFlow, Split, Transaction, LedgerEntry, Invoice
 from simple_accounting.exceptions import MalformedPathString, InvalidAccountingOperation, MalformedAccountTree, MalformedTransaction, SubjectiveAPIError
 
 from simple_accounting.tests.models import Person, GAS, Supplier
 from simple_accounting.tests.models import GASSupplierSolidalPact, GASMember
 from simple_accounting.tests.models import GASSupplierOrder, GASSupplierOrderProduct, GASMemberOrder, GASSupplierStock
+from django.core.exceptions import ValidationError
 
 
 class DES(object):
@@ -651,155 +652,296 @@ class AccountModelTest(TestCase):
     
   
 class AccountModelValidationTest(TestCase):
-    """Check validation logic for ``Account`` model class"""
+    """Check validation logic for the ``Account`` model class"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.subject = self.person.subject
+        self.system = self.person.accounting.system
+        # sweep away auto-created accounts
+        Account.objects.all().delete()
+        # setup a test account system
+        self.root = Account.objects.create(system=self.system, parent=None, name='', kind=account_type.root, is_placeholder=True)
+        self.spam = Account.objects.create(system=self.system, parent=self.root, name='spam', kind=account_type.asset)
+        self.cheese = Account.objects.create(system=self.system, parent=self.root, name='cheese', kind=account_type.income)
+        self.bar = Account.objects.create(system=self.system, parent=self.spam, name='bar', kind=account_type.asset)
+        self.baz = Account.objects.create(system=self.system, parent=self.spam, name='baz', kind=account_type.liability)
     
     def testValidationFailIfAccountsBelongToDifferentSystems(self):
         """An account must belong to the same accounting system of its parent, if any"""
-        # WRITEME
-        pass
+        gas = GAS.objects.create(name="GASteropode")
+        self.assertRaises(ValidationError, Account.objects.create, system=gas.accounting.system, parent=self.spam, name='ham', kind=account_type.asset)
     
     def testValidationFailIfMixingAccountTypes(self):
         """Stock-like accounts cannot be mixed with flux-like ones"""
-        # WRITEME
-        pass
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.spam, name='ham', kind=account_type.income)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.spam, name='ham', kind=account_type.expense)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.cheese, name='ham', kind=account_type.asset)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.cheese, name='ham', kind=account_type.liability)
 
     def testValidationFailIfRootAccountNameIsNotEmpty(self):
         """Root accounts must have the empty string as their name"""
-        # WRITEME
-        pass
+        Account.objects.all().delete()
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=None, name='foo', kind=account_type.root, is_placeholder=True)
 
     def testValidationFailIfNonRootAccountHasEmptyName(self):
         """If an account has an empty string as its name, it must be the root one"""
-        # WRITEME
-        pass
-
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.root, name='', kind=account_type.income)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.root, name='', kind=account_type.expense)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.root, name='', kind=account_type.asset)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.root, name='', kind=account_type.liability)
+        
     def testValidationFailIfAccountNameContainsPathSep(self):
         """Account names can't contain ``ACCOUNT_PATH_SEPARATOR``"""
-        # WRITEME
-        pass
-
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.root, name='/ham', kind=account_type.income)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.root, name='ha/m', kind=account_type.asset)
+        self.assertRaises(ValidationError, Account.objects.create, system=self.system, parent=self.spam, name='ham/', kind=account_type.liability)
 
 class CashFlowModelTest(TestCase):
     """Tests related to the ``CashFlow`` model class"""
    
     def setUp(self):
-        pass
-    
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.subject = self.person.subject
+        self.system = self.person.accounting.system
+        # sweep away auto-created accounts
+        Account.objects.all().delete()
+        # setup a test account system
+        self.root = Account.objects.create(system=self.system, parent=None, name='', kind=account_type.root, is_placeholder=True)
+        self.spam = Account.objects.create(system=self.system, parent=self.root, name='spam', kind=account_type.asset)
+        
     def testIsIncoming(self):
         """Check that incoming flows are correctly recognized"""
-        # WRITEME
-        pass
+        cashflow = CashFlow.objects.create(account=self.spam, amount=-3.1) 
+        self.assertEqual(cashflow.is_incoming, True)
+        
+        cashflow = CashFlow.objects.create(account=self.spam, amount=5) 
+        self.assertEqual(cashflow.is_incoming, False)
     
     def testIsOutgoing(self):
         """Check that outgoing flows are correctly recognized"""
-        # WRITEME
-        pass
+        cashflow = CashFlow.objects.create(account=self.spam, amount=-3.1) 
+        self.assertEqual(cashflow.is_outgoing, False)
+        
+        cashflow = CashFlow.objects.create(account=self.spam, amount=5) 
+        self.assertEqual(cashflow.is_outgoing, True)
     
     def testGetSystem(self):
         """Check that the property ``.system`` works as advertised"""
-        # WRITEME
-        pass   
+        cashflow = CashFlow.objects.create(account=self.spam, amount=-3.1)
+        self.assertEqual(cashflow.system, self.system) 
     
     
 class CashFlowModelValidationTest(TestCase):
     """Check validation logic for ``CashFlow`` model class"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.subject = self.person.subject
+        self.system = self.person.accounting.system
+        # sweep away auto-created accounts
+        Account.objects.all().delete()
+        # setup a test account system
+        self.root = Account.objects.create(system=self.system, parent=None, name='', kind=account_type.root, is_placeholder=True)
+        self.spam = Account.objects.create(system=self.system, parent=self.root, name='spam', kind=account_type.income)
+        self.ham = Account.objects.create(system=self.system, parent=self.root, name='ham', kind=account_type.expense)
+        
     
     def testValidationFailIfNotAccountIsStock(self):
         """Only stock-like accounts may represent cash-flows"""
-        # WRITEME
-        pass
+        self.assertRaises(ValidationError, CashFlow.objects.create, account=self.root, amount=5.12)
+        self.assertRaises(ValidationError, CashFlow.objects.create, account=self.spam, amount=-3.1)
+        self.assertRaises(ValidationError, CashFlow.objects.create, account=self.ham, amount=0)
     
     
 class SplitModelTest(TestCase):
     """Tests related to the ``Split`` model class"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        # internal split
+        target=CashFlow.objects.create(account=self.gas_system['/cash'], amount=3.1)
+        self.internal_split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        # external split
+        exit_point=self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point=self.gas_system['/incomes/recharges']
+        target=CashFlow.objects.create(account=self.gas_system['/cash'], amount=-3.1)
+        self.external_split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
     
     def testIsInternal(self):
         """Check that internal splits are correctly recognized"""
-        # WRITEME
-        pass
-    
+        
+        self.assertEqual(self.internal_split.is_internal, True)
+        self.assertEqual(self.external_split.is_internal, False)
+        
     def testGetTargetSystem(self):
         """Check that the property ``.target_system`` works as advertised"""
-        # WRITEME
-        pass   
+        self.assertEqual(self.internal_split.target_system, self.gas_system)
+        self.assertEqual(self.external_split.target_system, self.gas_system)
     
     def testGetAmount(self):
         """Check that the property ``.amount`` works as advertised"""
-        # WRITEME
-        pass
+        self.assertEqual(self.internal_split.amount, -3.1)
+        self.assertEqual(self.external_split.amount, 3.1)
     
     def testGetAccounts(self):
         """Check that the property ``.accounts`` works as advertised"""
-        # WRITEME
-        pass
-    
+        self.assertEqual(self.internal_split.accounts, [None, None, self.gas_system['/cash']])
+        self.assertEqual(self.external_split.accounts, [self.person_system['/expenses/gas/' + self.gas.uid + '/recharges'], self.gas_system['/incomes/recharges'], self.gas_system['/cash']])
+        
     
 class SplitModelValidationTest(TestCase):
     """Check validation logic for ``Split`` model class"""
    
     def setUp(self):
-        pass
-    
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        
     def testValidationFailIfEntryExitPointNullStatusDiffers(self):
         """If ``exit point`` is null, so must be ``entry_point``"""
-        # WRITEME
-        pass
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=3.1)
+        self.assertRaises(ValidationError, Split.objects.create, exit_point=None, entry_point=entry_point, target=target)
+        self.assertRaises(ValidationError, Split.objects.create, exit_point=exit_point, entry_point=None, target=target)
     
     def testValidationFailIfExitPointIsNotFluxLike(self):
         """``exit_point`` must be a flux-like account"""
-        # WRITEME
-        pass
+        exit_point = self.person_system['/wallet']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=3.1)
+        self.assertRaises(ValidationError, Split.objects.create, exit_point=exit_point, entry_point=entry_point, target=target)
     
     def testValidationFailIfEntryPointIsNotFluxLike(self):
         """``entry_point`` must be a flux-like account"""
-        # WRITEME
-        pass
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/cash']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=3.1)
+        self.assertRaises(ValidationError, Split.objects.create, exit_point=exit_point, entry_point=entry_point, target=target)
     
     def testValidationFailIfTargetIsNotStockLike(self):
         """``target`` must be a stock-like account"""
-        # WRITEME
-        pass
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/incomes/recharges'], amount=3.1)
+        self.assertRaises(ValidationError, Split.objects.create, exit_point=exit_point, entry_point=entry_point, target=target)
     
     def testValidationFailIfEntryPointAndTargetInDifferentAccountingSystems(self):
         """`entry_point`` must belongs to the same accounting system as ``target``"""
-        # WRITEME
-        pass
-
+        exit_point=self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point=self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        target=CashFlow.objects.create(account=self.gas_system['/cash'], amount=3.1)
+        self.assertRaises(ValidationError, Split.objects.create, exit_point=exit_point, entry_point=entry_point, target=target)
+    
 
 class TransactionModelTest(TestCase):
     """Tests related to the ``Transaction`` model class"""
    
     def setUp(self):
-        pass
-    
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.person2 = Person.objects.create(name="Giorgio", surname="Bianchi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        self.member2 = GASMember.objects.create(gas=self.gas, person=self.person2)
+        
+        ## external split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=7.2)
+        self.split1 = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(self.split1)
+        # fee payment
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        entry_point = self.gas_system['/incomes/fees']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=2.8)
+        self.split2 = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(self.split2)
+        self.split_external_tx = transaction
+        
+        ## internal split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & internal"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/cash'], amount=0)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=-1.2)
+        self.split3 = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(self.split3)
+        # Refund to Giorgio Bianchi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member2.uid], amount=1.2)
+        self.split4 = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(self.split4)
+        self.split_internal_tx = transaction
+        
+        ## external, non-split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: non-split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10)
+        self.split5 = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(self.split5)
+        self.external_tx = transaction
+        
+        ## internal, non-split (i.e. "simple") transaction 
+        transaction = Transaction()
+        transaction.description = "Test transaction: simple"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10.5)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=-10.5)
+        self.split6 = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(self.split6)
+        self.simple_tx = transaction
+        
     def testGetSplits(self):
-        """Check that the property ``.splits`` works as advertised"""
-        # WRITEME
-        pass
+        """Check that the property ``.splits`` works as advertised"""        
+        self.assertEqual(set(self.split_external_tx), set((self.split1, self.split2))) 
+        self.assertEqual(set(self.split_internal_tx), set((self.split3, self.split4)))
+        self.assertEqual(set(self.external_tx), set(self.split5))
+        self.assertEqual(set(self.simple_tx), set(self.split6))
         
     def testIsSplit(self):
         """Check that split transactions are correctly recognized"""
-        # WRITEME
-        pass
+        self.assertTrue(self.split_external_tx.is_split)
+        self.assertTrue(self.split_internal_tx.is_split)
+        self.assertFalse(self.external_tx.is_split)
+        self.assertFalse(self.simple_tx.is_split)
     
     def testIsInternal(self):
         """Check that internal transactions are correctly recognized"""
-        # WRITEME
-        pass
+        self.assertFalse(self.split_external_tx.is_split)
+        self.assertTrue(self.split_internal_tx.is_split)
+        self.assertFalse(self.external_tx.is_split)
+        self.assertTrue(self.simple_tx.is_split)
     
     def testIsSimple(self):
         """Check that simple transactions are correctly recognized"""
-        # WRITEME
-        pass
+        self.assertFalse(self.split_external_tx.is_split)
+        self.assertFalse(self.split_internal_tx.is_split)
+        self.assertFalse(self.external_tx.is_split)
+        self.assertTrue(self.simple_tx.is_split)
     
     def testGetLedgerEntries(self):
         """Check that the property ``.ledger_entries`` works as advertised"""
@@ -813,14 +955,19 @@ class TransactionModelTest(TestCase):
     
     def testSetConfirmedOK(self):
         """Check that a transaction can be confirmed if not already so"""
-        # WRITEME
-        pass
-    
+        transaction = self.split_external_tx
+        self.assertFalse(transaction.is_confirmed)
+        transaction.confirm
+        self.assertTrue(transaction.is_confirmed)
+        
     def testSetConfirmedFailifAlreadyConfirmed(self):
         """If a transaction had already been confirmed, raise ``InvalidAccountingOperation``"""
-        # WRITEME
-        pass
-    
+        transaction = self.split_external_tx
+        self.assertFalse(transaction.is_confirmed)
+        transaction.is_confirmed = True
+        transaction.save()
+        self.assertRaises(InvalidAccountingOperation, transaction.confirm)
+        
     def testAddReference(self):
         """Check that the method ``.add_reference()`` works as advertised"""
         # WRITEME
@@ -836,27 +983,196 @@ class TransactionModelValidationTest(TestCase):
     """Check validation logic for ``Transaction`` model class"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.person2 = Person.objects.create(name="Giorgio", surname="Bianchi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        self.member2 = GASMember.objects.create(gas=self.gas, person=self.person2)    
     
     def testValidationFailIfConservationOfMoneyNotSatisfied(self):
         """Check that the *law of conservation of money* is satisfied"""
-        # WRITEME
-        pass
+        ## external split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=7.2)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        # fee payment
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        entry_point = self.gas_system['/incomes/fees']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=2.3)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        
+        ## internal split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & internal"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/cash'], amount=0)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=-1.2)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
+        # Refund to Giorgio Bianchi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member2.uid], amount=1.1)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
+        
+        ## external, non-split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: non-split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=9)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        
+        ## internal, non-split (i.e. "simple") transaction 
+        transaction = Transaction()
+        transaction.description = "Test transaction: simple"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10.5)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=10.5)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
     
     def testValidationFailIfExitPointsAndSourceInDifferentAccountingSystems(self):
         """Exit-points must belong to the same accounting system as the source account"""
-        # WRITEME
-        pass
-    
+        ## external split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.gas_system['/incomes/fees']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=7.2)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        # fee payment
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        entry_point = self.gas_system['/incomes/fees']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=2.8)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        
+        ## external, non-split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: non-split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.person_system['/incomes/fees']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        
     def testValidationFailIfSourceAndTargetsInDifferentAccountingSystemsAndInternal(self):
-        """For internal splits, source and target accounts must belong to the same accounting system"""
-        # WRITEME
-        pass
+        """For internal transactions, source and target accounts must belong to the same accounting system"""
+        ## internal split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & internal"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/cash'], amount=0)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=-1.2)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
+        # [Wrong specs] Refund to Giorgio Bianchi's member account 
+        target = CashFlow.objects.create(account=self.person_system['/wallet'], amount=1.2)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
+              
+        ## internal, non-split (i.e. "simple") transaction 
+        transaction = Transaction()
+        transaction.description = "Test transaction: simple"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10.5)
+        transaction.save()
+        # [Wrong specs] withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.person_system['/wallet'], amount=-10.5)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
      
     def testValidationFailIfAnyIsPlaceholder(self):
         """No account involved in a transaction can be a placeholder one"""
-        # WRITEME
-        pass   
+        ## external split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # [Wrong specs] recharge
+        exit_point = self.person_system['/expenses/gas']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=7.2)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        # fee payment
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        entry_point = self.gas_system['/incomes/fees']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=2.8)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        
+        ## internal split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & internal"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/cash'], amount=0)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=-1.2)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
+        # [Wrong specs] Refund to Giorgio Bianchi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members'], amount=1.2)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
+        
+        ## external, non-split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: non-split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # [Wrong specs] recharge
+        exit_point = self.person_system['/expenses/gas']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(split)
+        
+        ## internal, non-split (i.e. "simple") transaction 
+        transaction = Transaction()
+        transaction.description = "Test transaction: simple"
+        transaction.issuer = self.gas.subject
+        # [Wrong specs]
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/members'], amount=10.5)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=-10.5)
+        split = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(split)
     
     
 class TransactionReferenceModelTest(TestCase):

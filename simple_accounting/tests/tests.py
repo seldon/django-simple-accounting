@@ -1191,17 +1191,162 @@ class LedgerEntryModelTest(TestCase):
     """Tests related to the ``LedgerEntry`` model class"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.person2 = Person.objects.create(name="Giorgio", surname="Bianchi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        self.member2 = GASMember.objects.create(gas=self.gas, person=self.person2)
+        
+        ## external split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=7.2)
+        self.split1 = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(self.split1)
+        # fee payment
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        entry_point = self.gas_system['/incomes/fees']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=2.8)
+        self.split2 = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(self.split2)
+        self.split_external_tx = transaction
+        # create ledger entries for this transaction
+        self.entry1 = LedgerEntry.objects.create(account=self.person_system['/wallet'], transaction=self.split_external_tx, amount=-10.0)
+        self.entry2 = LedgerEntry.objects.create(account=self.person_system['/expenses/gas/' + self.gas.uid + '/recharges'], transaction=self.split_external_tx, amount=7.2)
+        self.entry3 = LedgerEntry.objects.create(account=self.person_system['/expenses/gas/' + self.gas.uid + '/fees'], transaction=self.split_external_tx, amount=2.8)
+        self.entry4 = LedgerEntry.objects.create(account=self.gas_system['/incomes/recharges'], transaction=self.split_external_tx, amount=7.2)
+        self.entry5 = LedgerEntry.objects.create(account=self.gas_system['/incomes/fees'], transaction=self.split_external_tx, amount=2.8)
+        self.entry6 = LedgerEntry.objects.create(account=self.gas_system['/members/' + self.member.uid], transaction=self.split_external_tx, amount=7.2)
+        self.entry7 = LedgerEntry.objects.create(account=self.gas_system['cash'], transaction=self.split_external_tx, amount=2.8)
+        
+        ## internal split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: split & internal"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/cash'], amount=0)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=-1.2)
+        self.split3 = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(self.split3)
+        # Refund to Giorgio Bianchi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member2.uid], amount=1.2)
+        self.split4 = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(self.split4)
+        self.split_internal_tx = transaction
+        # create ledger entries for this transaction
+        self.entry8 = LedgerEntry.objects.create(account=self.gas_system['cash'], transaction=self.split_internal_tx, amount=0)
+        self.entry9 = LedgerEntry.objects.create(account=self.gas_system['/members/' + self.member.uid], transaction=self.split_internal_tx, amount=-1.2)
+        self.entry10 = LedgerEntry.objects.create(account=self.gas_system['/members/' + self.member2.uid], transaction=self.split_internal_tx, amount=1.2)
+        
+        ## external, non-split transaction
+        transaction = Transaction()
+        transaction.description = "Test transaction: non-split & external"
+        transaction.issuer = self.person.subject
+        transaction.source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        transaction.save()
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10)
+        self.split5 = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        transaction.split_set.add(self.split5)
+        self.external_tx = transaction
+        # create ledger entries for this transaction
+        self.entry11 = LedgerEntry.objects.create(account=self.person_system['/wallet'], transaction=self.external_tx, amount=-10.0)
+        self.entry12 = LedgerEntry.objects.create(account=self.person_system['/expenses/gas/' + self.gas.uid + '/recharges'], transaction=self.external_tx, amount=10.0)
+        self.entry13 = LedgerEntry.objects.create(account=self.gas_system['/incomes/recharges'], transaction=self.external_tx, amount=10)
+        self.entry14 = LedgerEntry.objects.create(account=self.gas_system['/members/' + self.member.uid], transaction=self.external_tx, amount=10)
+        
+        ## internal, non-split (i.e. "simple") transaction 
+        transaction = Transaction()
+        transaction.description = "Test transaction: simple"
+        transaction.issuer = self.gas.subject
+        transaction.source = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=10.5)
+        transaction.save()
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=-10.5)
+        self.split6 = Split.objects.create(exit_point=None, entry_point=None, target=target)
+        transaction.split_set.add(self.split6)
+        self.simple_tx = transaction
+        
+        self.entry15 = LedgerEntry.objects.create(account=self.gas_system['/members/' + self.member.uid], transaction=self.simple_tx, amount=-10.5)
+        self.entry16 = LedgerEntry.objects.create(account=self.gas_system['cash'], transaction=self.simple_tx, amount=10.5)
     
     def testGetDate(self):
         """Check that the property ``.date`` works as advertised"""
-        # WRITEME
-        pass
+        self.assertEqual(self.entry1, self.split_external_tx.date) 
+        self.assertEqual(self.entry2, self.split_external_tx.date)
+        self.assertEqual(self.entry3, self.split_external_tx.date)
+        self.assertEqual(self.entry4, self.split_external_tx.date) 
+        self.assertEqual(self.entry5, self.split_external_tx.date)
+        self.assertEqual(self.entry6, self.split_external_tx.date)
+        self.assertEqual(self.entry7, self.split_external_tx.date)
+        self.assertEqual(self.entry8, self.split_internal_tx.date)
+        self.assertEqual(self.entry9, self.split_internal_tx.date)
+        self.assertEqual(self.entry10, self.split_internal_tx.date)                        
+        self.assertEqual(self.entry11, self.external_tx.date)
+        self.assertEqual(self.entry12, self.external_tx.date)
+        self.assertEqual(self.entry13, self.external_tx.date)
+        self.assertEqual(self.entry14, self.external_tx.date)
+        self.assertEqual(self.entry15, self.simple_tx.date)
+        self.assertEqual(self.entry16, self.simple_tx.date)        
     
     def testGetSplit(self):
         """Check that the property ``.split`` works as advertised"""
-        # WRITEME
-        pass
+        
+        try:
+            self.entry1.split
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError
+ 
+        self.assertEqual(self.entry2.split, self.split1)
+        self.assertEqual(self.entry3.split, self.split2)
+        self.assertEqual(self.entry4.split, self.split1) 
+        self.assertEqual(self.entry5.split, self.split2)
+        self.assertEqual(self.entry6.split, self.split1)
+        self.assertEqual(self.entry7.split, self.split2)
+        
+        try:
+            self.entry8.split
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError
+        
+        self.assertEqual(self.entry9.split, self.split3)
+        self.assertEqual(self.entry10.split, self.split4)
+                                
+        try:
+            self.entry11.split
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError
+        
+        self.assertEqual(self.entry12.split, self.split5)
+        self.assertEqual(self.entry13.split, self.split5)
+        self.assertEqual(self.entry14.split, self.split5)
+        
+        try:
+            self.entry15.split
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError
+        
+        
+        self.assertEqual(self.entry16.split, self.split6)        
     
     def testGetDescription(self):
         """Check that the property ``.description`` works as advertised"""
@@ -1210,13 +1355,43 @@ class LedgerEntryModelTest(TestCase):
         
     def testGetIssuer(self):
         """Check that the property ``.issuer`` works as advertised"""
-        # WRITEME
-        pass
+        self.assertEqual(self.entry1, self.person.subject) 
+        self.assertEqual(self.entry2, self.person.subject)
+        self.assertEqual(self.entry3, self.person.subject)
+        self.assertEqual(self.entry4, self.person.subject) 
+        self.assertEqual(self.entry5, self.person.subject)
+        self.assertEqual(self.entry6, self.person.subject)
+        self.assertEqual(self.entry7, self.person.subject)
+        self.assertEqual(self.entry8, self.gas.subject)
+        self.assertEqual(self.entry9, self.gas.subject)
+        self.assertEqual(self.entry10, self.gas.subject)                        
+        self.assertEqual(self.entry11, self.person.subject)
+        self.assertEqual(self.entry12, self.person.subject)
+        self.assertEqual(self.entry13, self.person.subject)
+        self.assertEqual(self.entry14, self.person.subject)
+        self.assertEqual(self.entry15, self.gas.subject)
+        self.assertEqual(self.entry16, self.gas.subject)        
+    
     
     def testNextEntryIdForLedger(self):
         """Check that generation of ledger IDs works as expected"""
-        # WRITEME
-        pass
+        self.assertEqual(self.entry1.entry_id, 1) 
+        self.assertEqual(self.entry2.entry_id, 1)
+        self.assertEqual(self.entry3.entry_id, 1)
+        self.assertEqual(self.entry4.entry_id, 1) 
+        self.assertEqual(self.entry5.entry_id, 1)
+        self.assertEqual(self.entry6.entry_id, 1)
+        self.assertEqual(self.entry7.entry_id, 2)
+        self.assertEqual(self.entry8.entry_id, 2)
+        self.assertEqual(self.entry9.entry_id, 1)
+        self.assertEqual(self.entry10.entry_id, 2)                        
+        self.assertEqual(self.entry11.entry_id, 2)
+        self.assertEqual(self.entry12.entry_id, 2)
+        self.assertEqual(self.entry13.entry_id, 2)
+        self.assertEqual(self.entry14.entry_id, 3)
+        self.assertEqual(self.entry15.entry_id, 4)
+        self.assertEqual(self.entry16.entry_id, 3)        
+    
     
     def testSaveOverride(self):
         """Check that the ``.save()`` ovveride method works as expected"""

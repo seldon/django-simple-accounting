@@ -381,10 +381,14 @@ class AccountSystem(models.Model):
      
     @staticmethod
     def _validate_account_path(path):
+        import re
+        
         if not path.startswith(ACCOUNT_PATH_SEPARATOR):
             raise MalformedPathString("Valid paths must begin with this string: %s " % ACCOUNT_PATH_SEPARATOR)
         elif path.endswith(ACCOUNT_PATH_SEPARATOR) and len(path) > len(ACCOUNT_PATH_SEPARATOR):
             raise MalformedPathString("Valid paths can't end with this string: %s" % ACCOUNT_PATH_SEPARATOR)
+        elif re.search(r'(' + ACCOUNT_PATH_SEPARATOR + r'){2,}' , path):
+            raise MalformedPathString("Path components must be separated by a single %s occurrence" % ACCOUNT_PATH_SEPARATOR)
         
     def get_account_from_path(self, path):
         """

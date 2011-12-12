@@ -615,7 +615,7 @@ class Account(models.Model):
         """
         Return the children for this account, as a ``QuerySet``.
         """
-        children = Account.objects.get(parent=self)
+        children = Account.objects.filter(parent=self)
         return children
     
     def add_child(self, name, kind=None, is_placeholder=False):

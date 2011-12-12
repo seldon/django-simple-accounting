@@ -748,7 +748,7 @@ class Split(models.Model):
     @property
     def accounts(self):
         """
-        The list of accounts involved by this split 
+        The list of accounts involved by this split, as an ordered list 
         (i.e. [<exit_point>, <entry point>, <target account>]).
         """
         accounts = [self.exit_point, self.entry_point, self.target.account]

@@ -20,6 +20,7 @@ from django.contrib.contenttypes.models import ContentType
 from simple_accounting.models import account_type, BasicAccountTypeDict, AccountType
 from simple_accounting.models import Subject, AccountSystem, Account, CashFlow, Split, Transaction, LedgerEntry, Invoice
 from simple_accounting.exceptions import MalformedPathString, InvalidAccountingOperation, MalformedAccountTree, MalformedTransaction, SubjectiveAPIError
+from simple_accounting.utils import register_split_transaction, register_transaction, register_internal_transaction, register_simple_transaction
 
 from simple_accounting.tests.models import Person, GAS, Supplier
 from simple_accounting.tests.models import GASSupplierSolidalPact, GASMember
@@ -1521,22 +1522,88 @@ class RegisterSplitTransactionTest(TestCase):
     """Check that the ``register_split_transaction()`` factory function works as advertised"""
    
     def setUp(self):
-        pass
-    
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        
     def testTransactionCreationOK(self):
         """``register_split_transaction()`` should create a new transaction, based on given input"""
-        # WRITEME
-        pass
-    
+        ## external split transaction        
+        issuer = self.person.subject
+        description="Test transaction: split & external"
+        source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        splits = []
+        # GAS member recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=7.2)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        splits.append(split)
+        # fee payment
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        entry_point = self.gas_system['/incomes/fees']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=2.8)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        splits.append(split)
+        rv = register_split_transaction(source=source, splits=splits, description=description , issuer=issuer)
+        # check that a transaction was indeed created and saved to the DB, according to provided specs
+        transaction = Transaction.objects.get(source=source, issuer=issuer, description=description)
+        self.assertEqual(set(transaction.splits), set(splits))
+        # check that the factory function returns the newly created transaction
+        self.assertEqual(transaction, rv)
+        
     def testLedgerEntriesCreationOK(self):
         """``register_split_transaction()`` should create implied ledger entries"""
-        # WRITEME
-        pass
-    
-    def testReturnValueIsTransaction(self):
-        """``register_split_transaction()`` should return the newly created transaction"""
-        # WRITEME
-        pass
+        ## setup
+        issuer = self.person.subject
+        description="Test transaction: split & external"
+        source = CashFlow.objects.create(account=self.person_system['/wallet'], amount=10.0)
+        splits = []
+        # GAS member recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=7.2)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        splits.append(split)
+        # fee payment
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/fees']
+        entry_point = self.gas_system['/incomes/fees']
+        target = CashFlow.objects.create(account=self.gas_system['/cash'], amount=2.8)
+        split = Split.objects.create(exit_point=exit_point, entry_point=entry_point, target=target)
+        splits.append(split)
+        transaction = register_split_transaction(source=source, splits=splits, description=description , issuer=issuer)
+        ## check which ledger entries where created
+        self.assertEqual(len(LedgerEntry.objects.all()), 7)
+        
+        entry = LedgerEntry.objects.get(account=self.person_system['/wallet'], transaction=transaction)
+        self.assertEqual(entry.amount, -10)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.person_system['/expenses/gas/' + self.gas.uid + '/recharges'], transaction=transaction)
+        self.assertEqual(entry.amount, 7.2)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.person_system['/expenses/gas/' + self.gas.uid + '/fees'], transaction=transaction)
+        self.assertEqual(entry.amount, 2.8)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/incomes/recharges'], transaction=transaction)
+        self.assertEqual(entry.amount, 7.2)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/incomes/fees'], transaction=transaction)
+        self.assertEqual(entry.amount, 2.8)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/cash'], transaction=transaction)
+        self.assertEqual(entry.amount, 2.8)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/members/' + self.member.uid], transaction=transaction)
+        self.assertEqual(entry.amount, 7.2)
+        self.assertEqual(entry.entry_id, 1)
     
     def testFailIfSourceIsNotStockLike(self):
         """If source account is flux-like, raise ``MalformedTransaction``"""
@@ -1593,23 +1660,59 @@ class RegisterTransactionTest(TestCase):
     """Check that the ``register_transaction()`` factory function works as advertised"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
     
     def testTransactionCreationOK(self):
         """``register_transaction()`` should create a new transaction, based on given input"""
-        # WRITEME
-        pass
-    
+        ## external, non-split transaction
+        description="Test transaction: non-split & external"
+        issuer=self.person.subject
+        source_account = self.person_system['/wallet']
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target_account = self.gas_system['/members/' + self.member.uid]
+        rv = register_transaction(source_account=source_account, exit_point=exit_point, entry_point=entry_point, target_account=target_account, amount=10, description=description, issuer=issuer)
+        # check that a transaction was indeed created and saved to the DB, according to provided specs
+        transaction = Transaction.objects.get(source__account=source_account, source__amount=10,  issuer=issuer, description=description)
+        self.assertEqual(len(transaction.splits), 1)
+        # check that the factory function returns the newly created transaction
+        self.assertEqual(transaction, rv)
+        
     def testLedgerEntriesCreationOK(self):
         """``register_transaction()`` should create implied ledger entries"""
-        # WRITEME
-        pass
-    
-    def testReturnValueIsTransaction(self):
-        """``register_transaction()`` should return the newly created transaction"""
-        # WRITEME
-        pass
-    
+        ## setup
+        description="Test transaction: non-split & external"
+        issuer=self.person.subject
+        source_account = self.person_system['/wallet']
+        # recharge
+        exit_point = self.person_system['/expenses/gas/' + self.gas.uid + '/recharges']
+        entry_point = self.gas_system['/incomes/recharges']
+        target_account = self.gas_system['/members/' + self.member.uid]
+        transaction = register_transaction(source_account=source_account, exit_point=exit_point, entry_point=entry_point, target_account=target_account, amount=10, description=description, issuer=issuer)
+        ## check which ledger entries where created
+        self.assertEqual(len(LedgerEntry.objects.all()), 4)
+        
+        entry = LedgerEntry.objects.get(account=self.person_system['/wallet'], transaction=transaction)
+        self.assertEqual(entry.amount, -10)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.person_system['/expenses/gas/' + self.gas.uid + '/recharges'], transaction=transaction)
+        self.assertEqual(entry.amount, 10)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/incomes/recharges'], transaction=transaction)
+        self.assertEqual(entry.amount, 10)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/members/' + self.member.uid], transaction=transaction)
+        self.assertEqual(entry.amount, 10)
+        self.assertEqual(entry.entry_id, 1)
+       
     def testFailIfSourceIsNotStockLike(self):
         """If source account is flux-like, raise ``MalformedTransaction``"""
         # WRITEME
@@ -1655,23 +1758,65 @@ class RegisterInternalTransactionTest(TestCase):
     """Check that the ``register_internal_transaction()`` factory function works as advertised"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.person2 = Person.objects.create(name="Giorgio", surname="Bianchi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        self.member2 = GASMember.objects.create(gas=self.gas, person=self.person2)
     
     def testTransactionCreationOK(self):
         """``register_internal_transaction()`` should create a new transaction, based on given input"""
-        # WRITEME
-        pass
-    
+        ## internal split transaction
+        description="Test transaction: split & internal"
+        issuer=self.gas.subject
+        source = CashFlow.objects.create(account=self.gas_system['/cash'], amount=0)
+        targets = []
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=-1.2)
+        targets.append(target)
+        # Refund to Giorgio Bianchi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member2.uid], amount=1.2)
+        targets.append(target)
+        rv = register_internal_transaction(source=source, targets=targets, description=description, issuer=issuer)
+        # check that a transaction was indeed created and saved to the DB, according to provided specs
+        transaction = Transaction.objects.get(source=source, issuer=issuer, description=description)
+        self.assertEqual(len(transaction.splits), 2)
+        self.assertTrue(transaction.splits[0].target in targets)
+        self.assertTrue(transaction.splits[1].target in targets)
+        # check that the factory function returns the newly created transaction
+        self.assertEqual(transaction, rv)
+        
     def testLedgerEntriesCreationOK(self):
         """``register_internal_transaction()`` should create implied ledger entries"""
-        # WRITEME
-        pass
-    
-    def testReturnValueIsTransaction(self):
-        """``register_internal_transaction()`` should return the newly created transaction"""
-        # WRITEME
-        pass
-    
+        ## setup 
+        description="Test transaction: split & internal"
+        issuer=self.gas.subject
+        source = CashFlow.objects.create(account=self.gas_system['/cash'], amount=0)
+        targets = []
+        # withdraw from Mario Rossi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member.uid], amount=-1.2)
+        targets.append(target)
+        # Refund to Giorgio Bianchi's member account
+        target = CashFlow.objects.create(account=self.gas_system['/members/' + self.member2.uid], amount=1.2)
+        targets.append(target)
+        transaction = register_internal_transaction(source=source, targets=targets, description=description, issuer=issuer)
+        ## check which ledger entries where created
+        self.assertEqual(len(LedgerEntry.objects.all()), 3)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/members/' + self.member.uid], transaction=transaction)
+        self.assertEqual(entry.amount, -1.2)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/members/' + self.member2.uid], transaction=transaction)
+        self.assertEqual(entry.amount, 1.2)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/cash'], transaction=transaction)
+        self.assertEqual(entry.amount, 0)
+        self.assertEqual(entry.entry_id, 1)
+            
     def testFailIfSourceIsNotStockLike(self):
         """If source account is flux-like, raise ``MalformedTransaction``"""
         # WRITEME
@@ -1702,17 +1847,49 @@ class RegisterSimpleTransactionTest(TestCase):
     """Check that the ``register_simple_transaction()`` factory function works as advertised"""
    
     def setUp(self):
-        pass
+        self.person = Person.objects.create(name="Mario", surname="Rossi")
+        self.person2 = Person.objects.create(name="Giorgio", surname="Bianchi")
+        self.gas = GAS.objects.create(name="GASteropode")
+        self.person_system = self.person.accounting.system
+        self.gas_system = self.gas.accounting.system
+        self.member = GASMember.objects.create(gas=self.gas, person=self.person)
+        self.member2 = GASMember.objects.create(gas=self.gas, person=self.person2)
     
     def testTransactionCreationOK(self):
         """``register_simple_transaction()`` should create a new transaction, based on given input"""
-        # WRITEME
-        pass
-    
+        ## internal, non-split (i.e. "simple") transaction
+        description="Test transaction: simple" 
+        issuer=self.gas.subject
+        source_account = self.gas_system['/members/' + self.member.uid]
+        # withdraw from Mario Rossi's member account
+        target_account = self.gas_system['/cash']
+        rv = register_simple_transaction(source_account=source_account, source__amount=10.5, issuer=issuer, description=description)
+        # check that a transaction was indeed created and saved to the DB, according to provided specs
+        transaction = Transaction.objects.get(source__account=source_account, )
+        self.assertEqual(len(transaction.splits), 1)
+        self.assertTrue(transaction.splits[0].target == target_account)
+        # check that the factory function returns the newly created transaction
+        self.assertEqual(transaction, rv)
+        
     def testLedgerEntriesCreationOK(self):
         """``register_simple_transaction()`` should create implied ledger entries"""
-        # WRITEME
-        pass
+        ## setup
+        description="Test transaction: simple" 
+        issuer=self.gas.subject
+        source_account = self.gas_system['/members/' + self.member.uid]
+        # withdraw from Mario Rossi's member account
+        target_account = self.gas_system['/cash']
+        transaction = register_simple_transaction(source_account=source_account, target_account=target_account, amount=10.5, issuer=issuer, description=description)
+        ## check which ledger entries where created
+        self.assertEqual(len(LedgerEntry.objects.all()), 2)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/members/' + self.member.uid], transaction=transaction)
+        self.assertEqual(entry.amount, -10.5)
+        self.assertEqual(entry.entry_id, 1)
+        
+        entry = LedgerEntry.objects.get(account=self.gas_system['/cash'], transaction=transaction)
+        self.assertEqual(entry.amount, 10.5)
+        self.assertEqual(entry.entry_id, 1)
     
     def testReturnValueIsTransaction(self):
         """``register_simple_transaction()`` should return the newly created transaction"""

@@ -845,7 +845,7 @@ class Transaction(models.Model):
      
     """   
     # when the transaction happened
-    date = models.DateTimeField(default=datetime.now, auto_now_add=True)
+    date = models.DateTimeField(default=datetime.now)
     # what the transaction represents
     description = models.CharField(max_length=512, help_text=_("Reason of the transaction"))
     # who triggered the transaction

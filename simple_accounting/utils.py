@@ -34,19 +34,24 @@ def transaction_details(transaction):
     display_str += "type: %s\n" % transaction.kind
     display_str += "source account: %s\n" % transaction.source.account
     display_str += "amount: %s\n" % transaction.source.amount
-    display_str += "is_split: %s\n" % transaction.is_split
-    display_str += "is_internal: %s\n" % transaction.is_internal
-    display_str += "is_simple: %s\n" % transaction.is_simple
-    display_str += "\nSPLITS: \n"
-    # display transaction splits 
-    split_count = 0
-    for split in transaction.splits:
-        split_count += 1
-        display_str += "split # %s\n|n" % split_count
-        display_str += "exit point: %s\n" % split.exit_point
-        display_str += "entry point: %s\n" % split.entry_point
-        display_str += "target account: %s\n" % split.target.account
-        display_str += "amount: %s\n" % transaction.target.amount
+
+    if transaction.pk:
+        display_str += "is_split: %s\n" % transaction.is_split
+        display_str += "is_simple: %s\n" % transaction.is_simple
+        display_str += "is_internal: %s\n" % transaction.is_internal
+        display_str += "\nSPLITS: \n"
+        # display transaction splits 
+        split_count = 0
+        for split in transaction.splits:
+            split_count += 1
+            display_str += "split # %s\n|n" % split_count
+            display_str += "exit point: %s\n" % split.exit_point
+            display_str += "entry point: %s\n" % split.entry_point
+            display_str += "target account: %s\n" % split.target.account
+            display_str += "amount: %s\n" % transaction.target.amount
+    else:
+        display_str += "transaction still not created\n"
+        
     
     return display_str    
     

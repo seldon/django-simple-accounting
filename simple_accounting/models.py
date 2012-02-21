@@ -31,7 +31,7 @@ from simple_accounting.fields import CurrencyField
 from simple_accounting.managers import AccountManager, TransactionManager
 from simple_accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation
 
-from datetime import datetime
+import datetime
 
 
 class Subject(models.Model):
@@ -847,7 +847,7 @@ class Transaction(models.Model):
      
     """   
     # when the transaction happened
-    date = models.DateTimeField(default=datetime.now)
+    date = models.DateTimeField(default=datetime.datetime.now)
     # what the transaction represents
     description = models.CharField(max_length=512, help_text=_("Reason of the transaction"))
     # who triggered the transaction
@@ -957,6 +957,9 @@ class Transaction(models.Model):
         
     def save(self, *args, **kwargs):
         # perform model validation
+        if not self.date:
+            self.date = datetime.datetime.now() 
+
         self.full_clean()
         super(Transaction, self).save(*args, **kwargs)
             

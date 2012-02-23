@@ -16,6 +16,8 @@
 
 from django.conf import settings 
 from django.db import models
+from django.db import transaction as db_transaction
+
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils.translation import ugettext, ugettext_lazy as _
@@ -29,7 +31,7 @@ from simple_accounting.fields import CurrencyField
 from simple_accounting.managers import AccountManager, TransactionManager
 from simple_accounting.exceptions import MalformedAccountTree, SubjectiveAPIError, InvalidAccountingOperation, MalformedPathString
 
-from datetime import datetime
+import datetime
 
 
 class Subject(models.Model):
@@ -833,7 +835,7 @@ class Transaction(models.Model):
      
     """   
     # when the transaction happened
-    date = models.DateTimeField(default=datetime.now, auto_now_add=True)
+    date = models.DateTimeField(default=datetime.datetime.now)
     # what the transaction represents
     description = models.CharField(max_length=512, help_text=_("Reason of the transaction"))
     # who triggered the transaction
@@ -943,6 +945,9 @@ class Transaction(models.Model):
         
     def save(self, *args, **kwargs):
         # perform model validation
+        if not self.date:
+            self.date = datetime.datetime.now() 
+
         self.full_clean()
         super(Transaction, self).save(*args, **kwargs)
             
@@ -972,7 +977,42 @@ class Transaction(models.Model):
         """
         for ref in refs:
             self.add_reference(ref)           
-            
+
+    @property
+    def amount(self):
+        return self.source.amount
+
+
+    @amount.setter
+    def set_amount(self, amount):
+        
+        amount = abs(amount)
+        if self.split_set.count() > 1:
+            raise ProgrammingError("How can we distribute"
+                "a single value 'amount' among many"    
+                "splits destination?"
+            )
+        target = self.splits[0]
+
+        with db_transaction.commit_on_success():
+
+            for le in self.ledger_entries:
+                if le.amount < 0:
+                    le.amount = -amount
+                else:
+                    le.amount = amount
+                le.save()
+
+            if self.source.amount < 0:
+                self.source.amount = -amount
+                target.amount = amount
+            else:
+                self.source.amount = amount
+                target.amount = amount
+
+            self.source.save()
+            target.save()
+
         
 class TransactionReference(models.Model):
     """
@@ -1046,7 +1086,8 @@ class LedgerEntry(models.Model):
             raise AttributeError("Source accounts for transactions don't belong to any split")
         else:            
             for split in self.transaction.splits:
-                if self.account in split.accounts: return split
+                if self.account in split.accounts: 
+                    return split
     
     @property
     def description(self):

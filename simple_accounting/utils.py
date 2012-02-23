@@ -15,6 +15,7 @@
 # along with ``django-simple-accounting``. If not, see <http://www.gnu.org/licenses/>.
 
 from django.core.exceptions import ValidationError
+from django.utils.translation import ugettext as _
 
 from simple_accounting.models import Transaction, CashFlow, Split, LedgerEntry
 from simple_accounting.models import AccountType
@@ -33,19 +34,24 @@ def transaction_details(transaction):
     display_str += "type: %s\n" % transaction.kind
     display_str += "source account: %s\n" % transaction.source.account
     display_str += "amount: %s\n" % transaction.source.amount
-    display_str += "is_split: %s\n" % transaction.is_split
-    display_str += "is_internal: %s\n" % transaction.is_internal
-    display_str += "is_simple: %s\n" % transaction.is_simple
-    display_str += "\nSPLITS: \n"
-    # display transaction splits 
-    split_count = 0
-    for split in transaction.splits:
-        split_count += 1
-        display_str += "split # %s\n|n" % split_count
-        display_str += "exit point: %s\n" % split.exit_point
-        display_str += "entry point: %s\n" % split.entry_point
-        display_str += "target account: %s\n" % split.target.account
-        display_str += "amount: %s\n" % transaction.target.amount
+
+    if transaction.pk:
+        display_str += "is_split: %s\n" % transaction.is_split
+        display_str += "is_simple: %s\n" % transaction.is_simple
+        display_str += "is_internal: %s\n" % transaction.is_internal
+        display_str += "\nSPLITS: \n"
+        # display transaction splits 
+        split_count = 0
+        for split in transaction.splits:
+            split_count += 1
+            display_str += "split # %s\n|n" % split_count
+            display_str += "exit point: %s\n" % split.exit_point
+            display_str += "entry point: %s\n" % split.entry_point
+            display_str += "target account: %s\n" % split.target.account
+            display_str += "amount: %s\n" % transaction.target.amount
+    else:
+        display_str += "transaction still not created\n"
+        
     
     return display_str    
     
@@ -128,7 +134,9 @@ def register_split_transaction(source, splits, description, issuer, date=None, k
     return transaction
 
 
-def register_transaction(source_account, exit_point, entry_point, target_account, amount, description, issuer, date=None, kind=None):
+def register_transaction(source_account, exit_point, entry_point, 
+    target_account, amount, description, issuer, date=None, kind=None
+):
     """
     A factory function for registering (non-split) transactions between accounts
     belonging to different accounting systems.
@@ -399,50 +407,61 @@ def update_transaction(transaction, **kwargs):
     2) update the transaction instance as requested
     3) generate the corresponding ledger entries for the updated transaction    
     """ 
-    # store attributes of original transaction for later reference
-    orig_splits = transaction.splits
-    # delete stale ledger entries
-    transaction.ledger_entries.delete() 
-    # delete the original transaction instance from the DB
-    transaction.delete()
-    # register a new version of the original transaction, 
-    # applying any requested changes
-    new_params = {}
-    new_params['description'] = transaction.description
-    new_params['issuer'] = transaction.issuer
-    new_params['date'] = transaction.date
-    new_params['kind'] = transaction.kind
-    # simple transactions
-    if transaction.is_simple:
-        new_params['source_account'] = transaction.source.account 
-        new_params['target_account'] = orig_splits[0].target.account 
-        new_params['amount'] = transaction.source.amount
-        # apply requested changes
-        new_params.update(kwargs)
-        transaction = register_simple_transaction(**new_params)
-    # internal transactions
-    elif transaction.is_internal:
-        new_params['source'] = transaction.source 
-        new_params['targets'] = [split.target for split in orig_splits]
-        # apply requested changes
-        new_params.update(kwargs)
-        transaction = register_internal_transaction(**new_params)
-    # non-split transactions
-    elif not transaction.is_split:
-        new_params['source_account'] = transaction.source.account 
-        new_params['target_account'] = orig_splits[0].target.account
-        new_params['entry_point'] =  orig_splits[0].entry_point
-        new_params['exit_point'] =  orig_splits[0].exit_point
-        new_params['amount'] = transaction.source.amount
-        # apply requested changes
-        new_params.update(kwargs)
-        transaction = register_transaction(**new_params)
-    # general transactions
-    else:
-        new_params['source'] = transaction.source
-        new_params['splits'] = orig_splits 
-        # apply requested changes
-        new_params.update(kwargs)
-        transaction = register_split_transaction(**new_params)
-              
+
+    if kwargs.get('amount'):
+        transaction.amount = kwargs['amount']
+
+    if kwargs.get('date'):
+        transaction.date = kwargs['date']
+ 
+    ## do all other update stuff.... with kwargs....
+    transaction.save()
     return transaction
+
+#WAS:    # store attributes of original transaction for later reference
+#WAS:    orig_splits = transaction.splits
+#WAS:    # delete stale ledger entries
+#WAS:    transaction.ledger_entries.delete() 
+#WAS:    # delete the original transaction instance from the DB
+#WAS:    transaction.delete()
+#WAS:    # register a new version of the original transaction, 
+#WAS:    # applying any requested changes
+#WAS:    new_params = {}
+#WAS:    new_params['description'] = transaction.description
+#WAS:    new_params['issuer'] = transaction.issuer
+#WAS:    new_params['date'] = transaction.date
+#WAS:    new_params['kind'] = transaction.kind
+#WAS:    # simple transactions
+#WAS:    if transaction.is_simple:
+#WAS:        new_params['source_account'] = transaction.source.account 
+#WAS:        new_params['target_account'] = orig_splits[0].target.account 
+#WAS:        new_params['amount'] = transaction.source.amount
+#WAS:        # apply requested changes
+#WAS:        new_params.update(kwargs)
+#WAS:        transaction = register_simple_transaction(**new_params)
+#WAS:    # internal transactions
+#WAS:    elif transaction.is_internal:
+#WAS:        new_params['source'] = transaction.source 
+#WAS:        new_params['targets'] = [split.target for split in orig_splits]
+#WAS:        # apply requested changes
+#WAS:        new_params.update(kwargs)
+#WAS:        transaction = register_internal_transaction(**new_params)
+#WAS:    # non-split transactions
+#WAS:    elif not transaction.is_split:
+#WAS:        new_params['source_account'] = transaction.source.account 
+#WAS:        new_params['target_account'] = orig_splits[0].target.account
+#WAS:        new_params['entry_point'] =  orig_splits[0].entry_point
+#WAS:        new_params['exit_point'] =  orig_splits[0].exit_point
+#WAS:        new_params['amount'] = transaction.source.amount
+#WAS:        # apply requested changes
+#WAS:        new_params.update(kwargs)
+#WAS:        transaction = register_transaction(**new_params)
+#WAS:    # general transactions
+#WAS:    else:
+#WAS:        new_params['source'] = transaction.source
+#WAS:        new_params['splits'] = orig_splits 
+#WAS:        # apply requested changes
+#WAS:        new_params.update(kwargs)
+#WAS:        transaction = register_split_transaction(**new_params)
+#WAS:              
+#WAS:    return transaction
